@@ -23,8 +23,8 @@ export default function HealthPage() {
         subtitle="Vaccination, anomaly detection and quarantine workflows"
       />
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <GlassCard className="p-6 lg:col-span-2 relative overflow-hidden">
+      <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
+        <GlassCard className="p-6 lg:p-8 lg:col-span-2 relative overflow-hidden">
           <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl animate-blob" />
           <div className="relative grid md:grid-cols-3 gap-6 items-center">
             <Ring value={vaccinationCoverage} label={`${vaccinationCoverage}%`} sublabel="Vax coverage" size={160} thickness={14} />
@@ -59,8 +59,8 @@ export default function HealthPage() {
         </GlassCard>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <GlassCard className="p-6 lg:col-span-2">
+      <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
+        <GlassCard className="p-6 lg:p-7 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-base font-semibold tracking-tight">Vaccination schedule</h3>

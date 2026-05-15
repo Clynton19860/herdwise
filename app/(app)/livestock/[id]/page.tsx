@@ -51,9 +51,9 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
+      <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
         {/* Profile */}
-        <GlassCard className="p-6 lg:col-span-1">
+        <GlassCard className="p-6 lg:p-7 lg:col-span-1">
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 rounded-3xl bg-[linear-gradient(135deg,#00f5a0,#5be7ff)] grid place-items-center text-emerald-950 shadow-[0_10px_30px_-10px_rgba(0,245,160,0.5)]">
               <I.Cow size={32} />
@@ -100,7 +100,7 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
         </GlassCard>
 
         {/* Telemetry */}
-        <GlassCard className="p-6 lg:col-span-2">
+        <GlassCard className="p-6 lg:p-7 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-base font-semibold tracking-tight">Live telemetry</h3>
@@ -176,8 +176,8 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
       </div>
 
       {/* Health & Incidents */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <GlassCard className="p-6 lg:col-span-2">
+      <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
+        <GlassCard className="p-6 lg:p-7 lg:col-span-2">
           <h3 className="text-base font-semibold tracking-tight">Health record</h3>
           <p className="text-xs text-white/55">Vaccination, treatment & quarantine history</p>
 

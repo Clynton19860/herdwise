@@ -12,8 +12,8 @@ export default function SettingsPage() {
         subtitle="Workspace, integrations and platform configuration"
       />
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <GlassCard className="p-6">
+      <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
+        <GlassCard className="p-6 lg:p-7">
           <h3 className="text-base font-semibold tracking-tight">Workspace</h3>
           <p className="text-xs text-white/55">City of Harare · Pilot tenant</p>
 
@@ -25,7 +25,7 @@ export default function SettingsPage() {
           </div>
         </GlassCard>
 
-        <GlassCard className="p-6">
+        <GlassCard className="p-6 lg:p-7">
           <h3 className="text-base font-semibold tracking-tight">Integrations</h3>
           <p className="text-xs text-white/55">Connected services</p>
 
@@ -38,7 +38,7 @@ export default function SettingsPage() {
           </ul>
         </GlassCard>
 
-        <GlassCard className="p-6">
+        <GlassCard className="p-6 lg:p-7">
           <h3 className="text-base font-semibold tracking-tight">Security</h3>
           <p className="text-xs text-white/55">Authentication, encryption, audit</p>
 

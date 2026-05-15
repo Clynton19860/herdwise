@@ -29,7 +29,7 @@ type Props = {
 export function Badge({ tone = "neutral", className = "", children, dot }: Props) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border backdrop-blur-md ${tones[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border backdrop-blur-md transition-colors duration-300 ${tones[tone]} ${className}`}
     >
       {dot && (
         <span

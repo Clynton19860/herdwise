@@ -24,7 +24,7 @@ export default function IncidentsPage() {
         subtitle="By-law enforcement, theft recovery, disease alerts"
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid-stagger grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-5">
         <Summary label="Open"        value={summary.open}        tone="amber"  />
         <Summary label="In progress" value={summary.inProgress}  tone="cyan"   />
         <Summary label="Escalated"   value={summary.escalated}   tone="coral"  />
@@ -99,9 +99,9 @@ export default function IncidentsPage() {
       </GlassCard>
 
       {/* Detailed cards */}
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid-stagger grid lg:grid-cols-2 gap-4 lg:gap-5">
         {incidents.slice(0, 4).map((i) => (
-          <GlassCard key={i.id} className="p-5">
+          <GlassCard key={i.id} hover className="p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs text-white/55">{i.ref}</span>
@@ -146,14 +146,14 @@ function Summary({
   const color =
     tone === "amber" ? "#ffb547" : tone === "cyan" ? "#5be7ff" : tone === "coral" ? "#ff8a8a" : "#00f5a0";
   return (
-    <GlassCard className="p-5 relative overflow-hidden">
+    <GlassCard hover className="p-6 relative overflow-hidden">
       <div
         className="absolute -top-12 -right-12 h-40 w-40 rounded-full blur-3xl opacity-30"
         style={{ background: color }}
       />
       <div className="relative">
-        <div className="text-xs uppercase tracking-wider text-white/55">{label}</div>
-        <div className="mt-2 text-4xl font-semibold tracking-tighter" style={{ color }}>
+        <div className="text-xs uppercase tracking-[0.14em] text-white/55">{label}</div>
+        <div className="mt-3 text-4xl font-semibold tracking-tighter" style={{ color }}>
           {value}
         </div>
       </div>

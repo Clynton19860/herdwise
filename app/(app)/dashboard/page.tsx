@@ -33,7 +33,7 @@ export default function DashboardPage() {
       />
 
       {/* ===== Hero metric strip ===== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid-stagger grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
         <MetricCard
           label="Registered livestock"
           value={platformStats.registered.toLocaleString()}
@@ -72,9 +72,9 @@ export default function DashboardPage() {
       </div>
 
       {/* ===== Live map + side rail ===== */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <GlassCard className="lg:col-span-2 p-4">
-          <div className="flex items-center justify-between mb-3">
+      <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
+        <GlassCard className="lg:col-span-2 p-5">
+          <div className="flex items-center justify-between mb-4 px-1">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-semibold tracking-tight">Live herd positions</h2>
               <Badge tone="veld" dot>Streaming</Badge>
@@ -91,7 +91,7 @@ export default function DashboardPage() {
           <MiniMap className="h-[420px]" />
 
           {/* Legend / zone counts */}
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">
             <LegendChip color="#34c071" label="Grazing" value={`${grazing} zones`} />
             <LegendChip color="#ffb547" label="Buffer" value="1 zone" />
             <LegendChip color="#ff6b6b" label="Restricted" value="1 zone" />
@@ -100,17 +100,17 @@ export default function DashboardPage() {
           </div>
         </GlassCard>
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:space-y-5">
           {/* Uptime ring + KPIs */}
           <GlassCard className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-base font-semibold tracking-tight">Platform health</h3>
-                <p className="text-xs text-white/55">Realtime · last 24h</p>
+                <p className="text-xs text-white/55 mt-0.5">Realtime · last 24h</p>
               </div>
               <Badge tone="aurora" dot>Nominal</Badge>
             </div>
-            <div className="mt-4 flex items-center gap-6">
+            <div className="mt-5 flex items-center gap-6">
               <Ring value={99.96} label="99.96%" sublabel="Uptime" />
               <div className="space-y-3 flex-1">
                 <RowKpi label="Avg. ingest latency" value="3.2s" tone="text-emerald-300" />
@@ -122,12 +122,12 @@ export default function DashboardPage() {
           </GlassCard>
 
           {/* Activity feed */}
-          <GlassCard className="p-5">
-            <div className="flex items-center justify-between mb-3">
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold tracking-tight">Activity</h3>
-              <button className="text-xs text-white/60 hover:text-white">View all</button>
+              <button className="text-xs text-white/60 hover:text-white transition-colors">View all</button>
             </div>
-            <ul className="space-y-3 max-h-[280px] overflow-y-auto pretty-scroll pr-1">
+            <ul className="space-y-3.5 max-h-[280px] overflow-y-auto pretty-scroll pr-1">
               {recentActivity.map((a) => (
                 <li key={a.id} className="flex gap-3">
                   <div className="mt-1.5">
@@ -142,12 +142,12 @@ export default function DashboardPage() {
       </div>
 
       {/* ===== Charts row ===== */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <GlassCard className="lg:col-span-2 p-6">
+      <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
+        <GlassCard className="lg:col-span-2 p-6 lg:p-7">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-semibold tracking-tight">Movement volume</h3>
-              <p className="text-xs text-white/55">7-day average kilometres travelled per animal</p>
+              <p className="text-xs text-white/55 mt-0.5">7-day average kilometres travelled per animal</p>
             </div>
             <div className="flex items-center gap-2">
               <Badge tone="veld">Herd</Badge>
@@ -155,7 +155,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-6">
+          <div className="mt-7">
             <Bars
               height={180}
               data={[
@@ -170,18 +170,18 @@ export default function DashboardPage() {
             />
           </div>
 
-          <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="mt-7 grid grid-cols-3 gap-3">
             <MicroStat label="Active herds" value="62" hint="+4 vs last week" />
             <MicroStat label="Median speed" value="1.6 km/h" hint="grazing pace" />
             <MicroStat label="Distance / day" value="3.4 km" hint="per animal" />
           </div>
         </GlassCard>
 
-        <GlassCard className="p-6">
+        <GlassCard className="p-6 lg:p-7">
           <h3 className="text-base font-semibold tracking-tight">By species</h3>
-          <p className="text-xs text-white/55">Composition of active fleet</p>
+          <p className="text-xs text-white/55 mt-0.5">Composition of active fleet</p>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-7 space-y-4">
             <SpeciesRow name="Cattle"  value={68} color="#00f5a0" />
             <SpeciesRow name="Goat"    value={18} color="#5be7ff" />
             <SpeciesRow name="Sheep"   value={9}  color="#ffb547" />
@@ -192,9 +192,9 @@ export default function DashboardPage() {
       </div>
 
       {/* ===== Critical / Watchlist ===== */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <GlassCard className="lg:col-span-2 p-6">
-          <div className="flex items-center justify-between mb-3">
+      <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
+        <GlassCard className="lg:col-span-2 p-6 lg:p-7">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-base font-semibold tracking-tight">Critical watchlist</h3>
               <p className="text-xs text-white/55">Animals requiring attention now</p>
@@ -243,12 +243,12 @@ export default function DashboardPage() {
           </div>
         </GlassCard>
 
-        <GlassCard className="p-6">
+        <GlassCard className="p-6 lg:p-7">
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-base font-semibold tracking-tight">Top owners</h3>
             <Badge tone="violet">By herd size</Badge>
           </div>
-          <p className="text-xs text-white/55 mb-4">
+          <p className="text-xs text-white/55 mb-5">
             Largest registered herds in the pilot zone
           </p>
 
@@ -318,7 +318,7 @@ function MetricCard({
   icon: React.ReactNode;
 }) {
   return (
-    <GlassCard className="p-5 relative overflow-hidden">
+    <GlassCard hover className="p-6 relative overflow-hidden">
       <div
         className="absolute -top-12 -right-12 h-40 w-40 rounded-full blur-3xl opacity-30"
         style={{ background: color }}
@@ -326,14 +326,14 @@ function MetricCard({
       <div className="relative">
         <div className="flex items-center justify-between">
           <Badge tone={tone}>{label}</Badge>
-          <div className="h-8 w-8 rounded-xl glass-thin grid place-items-center text-white/85">
+          <div className="h-9 w-9 rounded-xl glass-thin grid place-items-center text-white/85">
             {icon}
           </div>
         </div>
-        <div className="mt-4 text-3xl font-semibold tracking-tight">{value}</div>
-        <div className="text-xs text-white/55 mt-0.5">{delta}</div>
-        <div className="mt-3 -mb-1">
-          <Sparkline data={series} color={color} height={42} />
+        <div className="mt-5 text-3xl font-semibold tracking-tight">{value}</div>
+        <div className="text-xs text-white/55 mt-1">{delta}</div>
+        <div className="mt-4 -mb-1">
+          <Sparkline data={series} color={color} height={44} />
         </div>
       </div>
     </GlassCard>

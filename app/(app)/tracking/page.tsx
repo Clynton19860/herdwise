@@ -18,7 +18,7 @@ export default function TrackingPage() {
         subtitle="Realtime telemetry across municipal wards"
       />
 
-      <div className="grid lg:grid-cols-[1fr_360px] gap-4">
+      <div className="grid lg:grid-cols-[1fr_380px] gap-4 lg:gap-5">
         {/* ===== Map ===== */}
         <GlassCard className="p-3">
           <BigMap className="h-[calc(100dvh-220px)] min-h-[520px]" />
@@ -32,9 +32,9 @@ export default function TrackingPage() {
         </GlassCard>
 
         {/* ===== Side rail ===== */}
-        <div className="space-y-4">
-          <GlassCard className="p-5">
-            <div className="flex items-center justify-between mb-3">
+        <div className="space-y-4 lg:space-y-5">
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold tracking-tight">Layers</h3>
               <Badge tone="aurora">5 active</Badge>
             </div>
@@ -49,8 +49,8 @@ export default function TrackingPage() {
             </ul>
           </GlassCard>
 
-          <GlassCard className="p-5">
-            <div className="flex items-center justify-between mb-3">
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold tracking-tight">Watchlist</h3>
               <Button size="sm" variant="ghost">Manage</Button>
             </div>
@@ -80,9 +80,9 @@ export default function TrackingPage() {
             </ul>
           </GlassCard>
 
-          <GlassCard className="p-5">
+          <GlassCard className="p-6">
             <h3 className="text-base font-semibold tracking-tight">Live feed</h3>
-            <ul className="mt-3 space-y-2.5">
+            <ul className="mt-4 space-y-3">
               {recentActivity.slice(0, 5).map((a) => (
                 <li key={a.id} className="flex gap-3 text-sm">
                   <Badge tone={a.tone}>{a.when}</Badge>

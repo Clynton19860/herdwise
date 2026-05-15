@@ -33,7 +33,7 @@ export default function GeofencesPage() {
         subtitle="Grazing zones, restricted areas and watering points"
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid-stagger grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
         <Kpi label="Active zones" value={geofences.length.toString()} hint="across 6 wards" />
         <Kpi label="Total hectares" value={totalHa.toLocaleString()} hint="under management" />
         <Kpi label="Capacity" value={capacity.toString()} hint="permitted livestock" />
@@ -54,11 +54,11 @@ export default function GeofencesPage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid-stagger grid md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
         {geofences.map((g) => {
           const occPct = Math.round((g.occupancy / Math.max(g.capacity, 1)) * 100);
           return (
-            <GlassCard key={g.id} className="p-5">
+            <GlassCard key={g.id} hover className="p-6">
               <div className="flex items-start justify-between">
                 <div>
                   <ZoneTypeBadge type={g.type} />
@@ -115,10 +115,10 @@ export default function GeofencesPage() {
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
-    <GlassCard className="p-5">
-      <div className="text-xs uppercase tracking-wider text-white/55">{label}</div>
-      <div className="mt-2 text-3xl font-semibold tracking-tighter">{value}</div>
-      <div className="text-xs text-white/45">{hint}</div>
+    <GlassCard hover className="p-6">
+      <div className="text-xs uppercase tracking-[0.14em] text-white/55">{label}</div>
+      <div className="mt-3 text-3xl font-semibold tracking-tighter">{value}</div>
+      <div className="text-xs text-white/45 mt-1">{hint}</div>
     </GlassCard>
   );
 }

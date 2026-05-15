@@ -20,11 +20,11 @@ const variants: Record<Variant, string> = {
 const sizes: Record<Size, string> = {
   sm: "h-9 px-3.5 text-sm rounded-xl gap-1.5",
   md: "h-11 px-5 text-sm rounded-2xl gap-2",
-  lg: "h-13 px-7 text-base rounded-2xl gap-2.5",
+  lg: "h-[52px] px-7 text-base rounded-2xl gap-2.5",
 };
 
 const base =
-  "inline-flex items-center justify-center font-medium tracking-tight transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap";
+  "inline-flex items-center justify-center font-medium tracking-tight transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] hover:-translate-y-px disabled:opacity-50 disabled:pointer-events-none disabled:translate-y-0 whitespace-nowrap";
 
 type CommonProps = {
   variant?: Variant;

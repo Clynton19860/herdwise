@@ -30,7 +30,7 @@ export default function LivestockPage() {
       />
 
       {/* ===== Action bar ===== */}
-      <GlassCard className="p-3 flex flex-wrap items-center gap-2">
+      <GlassCard className="p-3 flex flex-wrap items-center gap-2 sticky top-5 z-10">
         <div className="flex items-center gap-2 flex-wrap">
           {filters.map((f) => (
             <button
@@ -59,13 +59,14 @@ export default function LivestockPage() {
       </GlassCard>
 
       {/* ===== Animal grid ===== */}
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid-stagger grid md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
         {animals.map((a) => {
           const owner = findOwner(a.ownerId);
           return (
             <GlassCard
               key={a.id}
-              className="p-5 group hover:-translate-y-0.5 transition-transform"
+              hover
+              className="p-6 group"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -84,7 +85,7 @@ export default function LivestockPage() {
                 <StatusBadge status={a.status} />
               </div>
 
-              <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
+              <dl className="mt-6 grid grid-cols-2 gap-3 text-sm">
                 <Field label="Breed" value={a.breed} />
                 <Field label="Sex" value={a.sex} />
                 <Field label="Age" value={`${a.ageMonths} mo`} />
@@ -93,7 +94,7 @@ export default function LivestockPage() {
                 <Field label="Device" value={a.device.type} />
               </dl>
 
-              <div className="mt-5 flex items-center justify-between gap-3">
+              <div className="mt-6 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 text-xs text-white/55">
                   <div className="flex items-center gap-1.5">
                     <I.Wifi size={14} />
@@ -110,7 +111,7 @@ export default function LivestockPage() {
                 </Link>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-white/8 flex items-center justify-between text-xs text-white/55">
+              <div className="mt-5 pt-5 border-t border-white/8 flex items-center justify-between text-xs text-white/55">
                 <span className="truncate">
                   Owner · <span className="text-white/80">{owner?.fullName}</span>
                 </span>

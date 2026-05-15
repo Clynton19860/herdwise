@@ -157,6 +157,31 @@
   50%      { opacity: 0.85; transform: scale(1.08); }
 }
 
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(14px); filter: blur(6px); }
+  to   { opacity: 1; transform: translateY(0);     filter: blur(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes count-up {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
 .animate-pulse-ring { animation: pulse-ring 2.4s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
 .animate-ticker     { animation: ticker 50s linear infinite; }
 .animate-float      { animation: float-slow 6s ease-in-out infinite; }
@@ -168,6 +193,61 @@
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
   background-size: 200% 100%;
   animation: shimmer 2.4s linear infinite;
+}
+
+/* ---------- Choreographed page entrance ---------- */
+.page-enter > * {
+  opacity: 0;
+  animation: fade-in-up 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.page-enter > *:nth-child(1)  { animation-delay: 0.02s; }
+.page-enter > *:nth-child(2)  { animation-delay: 0.08s; }
+.page-enter > *:nth-child(3)  { animation-delay: 0.14s; }
+.page-enter > *:nth-child(4)  { animation-delay: 0.20s; }
+.page-enter > *:nth-child(5)  { animation-delay: 0.26s; }
+.page-enter > *:nth-child(6)  { animation-delay: 0.32s; }
+.page-enter > *:nth-child(7)  { animation-delay: 0.38s; }
+.page-enter > *:nth-child(8)  { animation-delay: 0.44s; }
+.page-enter > *:nth-child(9)  { animation-delay: 0.50s; }
+.page-enter > *:nth-child(10) { animation-delay: 0.56s; }
+
+.grid-stagger > * {
+  opacity: 0;
+  animation: fade-in-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.grid-stagger > *:nth-child(1)  { animation-delay: 0.04s; }
+.grid-stagger > *:nth-child(2)  { animation-delay: 0.08s; }
+.grid-stagger > *:nth-child(3)  { animation-delay: 0.12s; }
+.grid-stagger > *:nth-child(4)  { animation-delay: 0.16s; }
+.grid-stagger > *:nth-child(5)  { animation-delay: 0.20s; }
+.grid-stagger > *:nth-child(6)  { animation-delay: 0.24s; }
+.grid-stagger > *:nth-child(7)  { animation-delay: 0.28s; }
+.grid-stagger > *:nth-child(8)  { animation-delay: 0.32s; }
+.grid-stagger > *:nth-child(9)  { animation-delay: 0.36s; }
+.grid-stagger > *:nth-child(10) { animation-delay: 0.40s; }
+.grid-stagger > *:nth-child(11) { animation-delay: 0.44s; }
+.grid-stagger > *:nth-child(12) { animation-delay: 0.48s; }
+
+.nav-stagger > * {
+  opacity: 0;
+  animation: slide-in-left 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.nav-stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.nav-stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.nav-stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.nav-stagger > *:nth-child(4) { animation-delay: 0.20s; }
+.nav-stagger > *:nth-child(5) { animation-delay: 0.25s; }
+.nav-stagger > *:nth-child(6) { animation-delay: 0.30s; }
+.nav-stagger > *:nth-child(7) { animation-delay: 0.35s; }
+.nav-stagger > *:nth-child(8) { animation-delay: 0.40s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  body::before { animation: none !important; }
 }
 
 /* ---------- Core glass utilities ---------- */
@@ -225,6 +305,23 @@
   box-shadow:
     inset 0 1px 0 rgba(0, 245, 160, 0.18),
     0 16px 50px -20px rgba(0, 245, 160, 0.4);
+}
+
+/* Refined card-hover affordance */
+@utility hover-lift {
+  transition:
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.4s ease,
+    box-shadow 0.4s ease,
+    background-color 0.4s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 24px 60px -24px rgba(0, 0, 0, 0.6),
+    0 0 48px -16px rgba(0, 245, 160, 0.28);
 }
 
 /* A soft outer glow ring */
