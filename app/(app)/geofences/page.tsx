@@ -1,0 +1,124 @@
+import { Topbar } from "@/components/app/topbar";
+import { GlassCard } from "@/components/ui/glass-card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { I } from "@/components/ui/icon";
+import { ZoneTypeBadge } from "@/components/app/indicators";
+import { geofences } from "@/lib/data";
+
+const fillByType: Record<string, string> = {
+  Grazing: "rgba(0, 245, 160, 0.22)",
+  Restricted: "rgba(255, 107, 107, 0.22)",
+  Watering: "rgba(91, 231, 255, 0.22)",
+  Buffer: "rgba(255, 181, 71, 0.22)",
+  Quarantine: "rgba(140, 124, 255, 0.22)",
+};
+const strokeByType: Record<string, string> = {
+  Grazing: "rgba(0, 245, 160, 0.7)",
+  Restricted: "rgba(255, 107, 107, 0.8)",
+  Watering: "rgba(91, 231, 255, 0.7)",
+  Buffer: "rgba(255, 181, 71, 0.7)",
+  Quarantine: "rgba(140, 124, 255, 0.7)",
+};
+
+export default function GeofencesPage() {
+  const totalHa = geofences.reduce((s, g) => s + g.hectares, 0);
+  const capacity = geofences.reduce((s, g) => s + g.capacity, 0);
+  const occupancy = geofences.reduce((s, g) => s + g.occupancy, 0);
+
+  return (
+    <>
+      <Topbar
+        title="Geofencing"
+        subtitle="Grazing zones, restricted areas and watering points"
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Kpi label="Active zones" value={geofences.length.toString()} hint="across 6 wards" />
+        <Kpi label="Total hectares" value={totalHa.toLocaleString()} hint="under management" />
+        <Kpi label="Capacity" value={capacity.toString()} hint="permitted livestock" />
+        <Kpi label="Occupancy" value={`${Math.round((occupancy / capacity) * 100)}%`} hint={`${occupancy} of ${capacity}`} />
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone="veld">Grazing</Badge>
+          <Badge tone="amber">Buffer</Badge>
+          <Badge tone="coral">Restricted</Badge>
+          <Badge tone="cyan">Watering</Badge>
+          <Badge tone="violet">Quarantine</Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="glass" iconLeft={<I.Map size={14} />}>Open in map</Button>
+          <Button size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>Draw new zone</Button>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {geofences.map((g) => {
+          const occPct = Math.round((g.occupancy / Math.max(g.capacity, 1)) * 100);
+          return (
+            <GlassCard key={g.id} className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <ZoneTypeBadge type={g.type} />
+                  <h3 className="mt-3 text-lg font-semibold tracking-tight">{g.name}</h3>
+                  <p className="text-xs text-white/55">{g.ward}</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-semibold tracking-tight">{g.hectares}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-white/45">hectares</div>
+                </div>
+              </div>
+
+              <div className="mt-4 map-canvas topo-lines relative overflow-hidden rounded-2xl h-36 border border-white/10">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+                  <polygon
+                    points={g.polygon.map((p) => p.join(",")).join(" ")}
+                    fill={fillByType[g.type]}
+                    stroke={strokeByType[g.type]}
+                    strokeWidth="0.4"
+                    strokeDasharray={g.type === "Restricted" ? "1 1" : undefined}
+                  />
+                </svg>
+                <div className="absolute bottom-2 left-2 chip">{g.polygon.length} vertices</div>
+              </div>
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-white/55">Occupancy</span>
+                  <span className="font-mono">{g.occupancy} / {g.capacity || "—"}</span>
+                </div>
+                <div className="mt-1.5 h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full"
+                    style={{
+                      width: `${Math.min(occPct, 100)}%`,
+                      background:
+                        occPct > 90
+                          ? "linear-gradient(90deg,#ff8a8a,#ff6b6b)"
+                          : occPct > 70
+                            ? "linear-gradient(90deg,#ffd57a,#ffb547)"
+                            : "linear-gradient(90deg,#00f5a0,#1aa05a)",
+                      boxShadow: "0 0 12px rgba(0,245,160,0.4)",
+                    }}
+                  />
+                </div>
+              </div>
+            </GlassCard>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function Kpi({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <GlassCard className="p-5">
+      <div className="text-xs uppercase tracking-wider text-white/55">{label}</div>
+      <div className="mt-2 text-3xl font-semibold tracking-tighter">{value}</div>
+      <div className="text-xs text-white/45">{hint}</div>
+    </GlassCard>
+  );
+}
