@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
@@ -69,7 +70,11 @@ export default function IncidentsPage() {
                     key={i.id}
                     className="border-t border-white/5 hover:bg-white/3 transition-colors"
                   >
-                    <td className="px-4 py-3 font-mono text-xs">{i.ref}</td>
+                    <td className="px-4 py-3 font-mono text-xs">
+                      <Link href={`/incidents/${i.id}`} className="text-emerald-200 hover:text-emerald-100 transition-colors">
+                        {i.ref}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3">{i.type}</td>
                     <td className="px-4 py-3"><SeverityBadge severity={i.severity} /></td>
                     <td className="px-4 py-3"><IncidentStatusBadge status={i.status} /></td>
@@ -101,7 +106,8 @@ export default function IncidentsPage() {
       {/* Detailed cards */}
       <div className="grid-stagger grid lg:grid-cols-2 gap-4 lg:gap-5">
         {incidents.slice(0, 4).map((i) => (
-          <GlassCard key={i.id} hover className="p-6">
+          <Link key={i.id} href={`/incidents/${i.id}`} className="block">
+          <GlassCard hover className="p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs text-white/55">{i.ref}</span>
@@ -128,6 +134,7 @@ export default function IncidentsPage() {
               </div>
             </div>
           </GlassCard>
+          </Link>
         ))}
       </div>
     </>

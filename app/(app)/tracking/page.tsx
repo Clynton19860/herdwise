@@ -21,7 +21,7 @@ export default function TrackingPage() {
       <div className="grid lg:grid-cols-[1fr_380px] gap-4 lg:gap-5">
         {/* ===== Map ===== */}
         <GlassCard className="p-3">
-          <BigMap className="h-[calc(100dvh-220px)] min-h-[520px]" />
+          <BigMap className="h-[420px] sm:h-[calc(100dvh-260px)] sm:min-h-[420px] lg:min-h-[520px]" />
 
           <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
             <Tile label="Devices online" value={live.toString()} tone="text-emerald-300" />

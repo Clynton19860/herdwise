@@ -74,21 +74,22 @@ export default function DashboardPage() {
       {/* ===== Live map + side rail ===== */}
       <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
         <GlassCard className="lg:col-span-2 p-5">
-          <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center justify-between mb-4 px-1 flex-wrap gap-2">
             <div className="flex items-center gap-3">
-              <h2 className="text-lg font-semibold tracking-tight">Live herd positions</h2>
+              <h2 className="text-base sm:text-lg font-semibold tracking-tight">Live herd positions</h2>
               <Badge tone="veld" dot>Streaming</Badge>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               <Button variant="glass" size="sm" iconLeft={<I.Filter size={14} />}>
-                Filters
+                <span className="hidden sm:inline">Filters</span>
               </Button>
               <LinkButton href="/tracking" variant="primary" size="sm" iconRight={<I.ArrowRight size={14} />}>
-                Open full map
+                <span className="hidden sm:inline">Open full map</span>
+                <span className="sm:hidden">Map</span>
               </LinkButton>
             </div>
           </div>
-          <MiniMap className="h-[420px]" />
+          <MiniMap className="h-[300px] sm:h-[360px] lg:h-[420px]" />
 
           {/* Legend / zone counts */}
           <div className="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">

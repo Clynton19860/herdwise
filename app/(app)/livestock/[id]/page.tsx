@@ -36,12 +36,12 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
       <div className="flex flex-wrap items-center gap-2">
         <Link
           href="/livestock"
-          className="inline-flex items-center gap-1.5 text-sm text-white/65 hover:text-white"
+          className="inline-flex items-center gap-1.5 text-sm text-white/65 hover:text-white transition-colors"
         >
           <I.ArrowRight size={14} className="rotate-180" />
           Back to registry
         </Link>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
           <Button size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>
             Subscribe
           </Button>
@@ -82,19 +82,21 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
             <div className="text-[11px] uppercase tracking-wider text-white/45">
               Registered owner
             </div>
-            <div className="mt-2 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-[linear-gradient(135deg,#ffd57a,#ff9b3a)] text-emerald-950 font-semibold grid place-items-center">
-                {owner?.fullName
-                  .split(" ")
-                  .map((n) => n[0])
-                  .slice(0, 2)
-                  .join("")}
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{owner?.fullName}</div>
-                <div className="text-xs text-white/55 truncate">{owner?.ward}</div>
-              </div>
-            </div>
+            {owner && (
+              <Link
+                href={`/owners/${owner.id}`}
+                className="mt-2 flex items-center gap-3 -mx-1 px-1 py-1 rounded-xl hover:bg-white/5 transition-colors"
+              >
+                <div className="h-10 w-10 rounded-2xl bg-[linear-gradient(135deg,#ffd57a,#ff9b3a)] text-emerald-950 font-semibold grid place-items-center shrink-0">
+                  {owner.fullName.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium truncate">{owner.fullName}</div>
+                  <div className="text-xs text-white/55 truncate">{owner.ward}</div>
+                </div>
+                <I.ArrowRight size={14} className="text-white/45" />
+              </Link>
+            )}
             <div className="mt-3 text-xs text-white/55 font-mono">{owner?.phone}</div>
           </div>
         </GlassCard>
@@ -117,7 +119,7 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <TelemetryCard
               title="Heart rate"
               value={`${animal.health.heartRateBpm}`}
@@ -134,7 +136,7 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
               color="#ffb547"
               icon={<I.Activity size={16} />}
             />
-            <div className="glass-thin rounded-2xl p-4 flex items-center gap-4">
+            <div className="glass-thin rounded-2xl p-4 flex items-center gap-4 sm:col-span-2 lg:col-span-1">
               <Ring value={animal.device.battery} label={`${animal.device.battery}%`} sublabel="Battery" size={108} thickness={10} />
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between gap-6">
@@ -155,7 +157,7 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
 
           <div className="mt-6">
             <h4 className="text-sm font-medium text-white/80 mb-2">Position</h4>
-            <div className="map-canvas topo-lines relative overflow-hidden rounded-3xl border border-white/10 h-[260px]">
+            <div className="map-canvas topo-lines relative overflow-hidden rounded-3xl border border-white/10 h-[220px] sm:h-[260px] md:h-[300px]">
               <div className="absolute inset-0 grid-lines opacity-30" />
               <div
                 className="absolute -translate-x-1/2 -translate-y-1/2"

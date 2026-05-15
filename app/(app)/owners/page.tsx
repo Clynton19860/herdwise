@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +39,8 @@ export default function OwnersPage() {
           const herd = animals.filter((a) => a.ownerId === o.id);
           const alerts = herd.filter((a) => a.status !== "Healthy").length;
           return (
-            <GlassCard key={o.id} hover className="p-6">
+            <Link key={o.id} href={`/owners/${o.id}`} className="block">
+            <GlassCard hover className="p-6">
               <div className="flex items-center gap-3">
                 <div
                   className="h-12 w-12 rounded-2xl grid place-items-center text-emerald-950 font-semibold text-base"
@@ -98,11 +100,12 @@ export default function OwnersPage() {
                     </span>
                   )}
                 </div>
-                <button className="text-xs text-emerald-200 hover:text-emerald-100 inline-flex items-center gap-1">
+                <span className="text-xs text-emerald-200 inline-flex items-center gap-1">
                   View profile <I.ArrowRight size={12} />
-                </button>
+                </span>
               </div>
             </GlassCard>
+            </Link>
           );
         })}
       </div>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +59,8 @@ export default function GeofencesPage() {
         {geofences.map((g) => {
           const occPct = Math.round((g.occupancy / Math.max(g.capacity, 1)) * 100);
           return (
-            <GlassCard key={g.id} hover className="p-6">
+            <Link key={g.id} href={`/geofences/${g.id}`} className="block">
+            <GlassCard hover className="p-6">
               <div className="flex items-start justify-between">
                 <div>
                   <ZoneTypeBadge type={g.type} />
@@ -106,6 +108,7 @@ export default function GeofencesPage() {
                 </div>
               </div>
             </GlassCard>
+            </Link>
           );
         })}
       </div>
