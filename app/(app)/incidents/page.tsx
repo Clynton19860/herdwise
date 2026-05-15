@@ -1,7 +1,7 @@
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
 import {
   SeverityBadge,
@@ -41,7 +41,7 @@ export default function IncidentsPage() {
 
         <div className="ml-auto flex items-center gap-2">
           <Button size="sm" variant="glass" iconLeft={<I.Filter size={14} />}>Filters</Button>
-          <Button size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>Report incident</Button>
+          <LinkButton href="/incidents/new" size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>Report incident</LinkButton>
         </div>
       </GlassCard>
 

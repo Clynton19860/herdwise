@@ -1,7 +1,7 @@
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
 import { animals, owners } from "@/lib/data";
 
@@ -28,9 +28,9 @@ export default function OwnersPage() {
           <Badge tone="violet">Top earners</Badge>
           <Badge tone="amber">Verification pending</Badge>
         </div>
-        <Button size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
+        <LinkButton href="/owners/new" size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
           Register owner
-        </Button>
+        </LinkButton>
       </div>
 
       <div className="grid-stagger grid md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">

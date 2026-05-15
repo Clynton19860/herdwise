@@ -1,7 +1,7 @@
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
 import { ZoneTypeBadge } from "@/components/app/indicators";
 import { geofences } from "@/lib/data";
@@ -49,8 +49,8 @@ export default function GeofencesPage() {
           <Badge tone="violet">Quarantine</Badge>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="glass" iconLeft={<I.Map size={14} />}>Open in map</Button>
-          <Button size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>Draw new zone</Button>
+          <LinkButton href="/tracking" size="sm" variant="glass" iconLeft={<I.Map size={14} />}>Open in map</LinkButton>
+          <LinkButton href="/geofences/new" size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>Draw new zone</LinkButton>
         </div>
       </div>
 

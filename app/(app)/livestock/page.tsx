@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
 import { animals, owners, findOwner } from "@/lib/data";
@@ -52,9 +52,9 @@ export default function LivestockPage() {
           <Button size="sm" variant="glass" iconLeft={<I.Filter size={14} />}>
             More filters
           </Button>
-          <Button size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
+          <LinkButton href="/livestock/new" size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
             Register animal
-          </Button>
+          </LinkButton>
         </div>
       </GlassCard>
 
