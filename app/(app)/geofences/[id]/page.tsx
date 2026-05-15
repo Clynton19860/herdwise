@@ -5,7 +5,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
-import { ScopedMap } from "@/components/app/scoped-map";
+import { GeofenceHeroMap } from "@/components/app/geofence-hero-map";
 import { Ring } from "@/components/charts/ring";
 import { Sparkline } from "@/components/charts/sparkline";
 import { ZoneTypeBadge, StatusBadge, SeverityBadge, IncidentStatusBadge } from "@/components/app/indicators";
@@ -102,7 +102,7 @@ export default async function GeofenceDetailPage({ params }: { params: Params })
             </div>
             <span className="text-xs text-white/45 font-mono">{zone.id.toUpperCase()}</span>
           </div>
-          <ScopedMap
+          <GeofenceHeroMap
             animals={insideAnimals}
             zones={geofences}
             highlightZoneId={zone.id}

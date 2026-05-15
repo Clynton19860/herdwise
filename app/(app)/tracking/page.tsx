@@ -3,7 +3,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
-import { BigMap } from "@/components/app/big-map";
+import { MapSwitcher } from "@/components/app/map-switcher";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
 import { animals, geofences, recentActivity } from "@/lib/data";
 
@@ -21,7 +21,11 @@ export default function TrackingPage() {
       <div className="grid lg:grid-cols-[1fr_380px] gap-4 lg:gap-5">
         {/* ===== Map ===== */}
         <GlassCard className="p-3">
-          <BigMap className="h-[420px] sm:h-[calc(100dvh-260px)] sm:min-h-[420px] lg:min-h-[520px]" />
+          <MapSwitcher
+            animals={animals}
+            zones={geofences}
+            className="h-[420px] sm:h-[calc(100dvh-300px)] sm:min-h-[420px] lg:min-h-[520px]"
+          />
 
           <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
             <Tile label="Devices online" value={live.toString()} tone="text-emerald-300" />
