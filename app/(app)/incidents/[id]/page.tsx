@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
 import { SeverityBadge, IncidentStatusBadge, StatusBadge } from "@/components/app/indicators";
 import { findAnimal, findOwner, geofences, incidents } from "@/lib/data";
+import { generateAiSummary } from "@/lib/ai-server";
 
 export function generateStaticParams() {
   return incidents.map((i) => ({ id: i.id }));
@@ -33,6 +34,36 @@ export default async function IncidentDetailPage({ params }: { params: Params })
     .slice(0, 2)
     .join("");
   const auditHash = `0x${incident.id.replace(/[^a-z0-9]/gi, "")}b3f02a`;
+
+  const aiSummary = await generateAiSummary({
+    system:
+      "You are Herdwise, a livestock platform AI assistant for the City of Harare. You write tight, decision-oriented executive summaries for municipal incident case files. Output 2-3 plain prose sentences. Be specific with tags, names, severity and time. No headings, no bullets, no preamble.",
+    user: JSON.stringify({
+      ref: incident.ref,
+      type: incident.type,
+      severity: incident.severity,
+      status: incident.status,
+      reported_at: incident.reportedAt,
+      location: incident.location.label,
+      officer: officerName,
+      notes: incident.notes,
+      animal: animal
+        ? {
+            tag: animal.tag,
+            name: animal.name,
+            species: animal.species,
+            breed: animal.breed,
+            status: animal.status,
+            zone: animal.location.zone,
+          }
+        : null,
+      owner: owner
+        ? { name: owner.fullName, ward: owner.ward, herd_size: owner.herdSize, phone: owner.phone }
+        : null,
+    }),
+    maxTokens: 400,
+    effort: "low",
+  });
 
   return (
     <>
@@ -87,6 +118,29 @@ export default async function IncidentDetailPage({ params }: { params: Params })
           </div>
         </div>
       </GlassCard>
+
+      {/* ===== AI executive summary ===== */}
+      {aiSummary && (
+        <GlassCard className="p-5 sm:p-6 relative overflow-hidden">
+          <div className="absolute -top-16 -right-16 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl" />
+          <div className="relative flex items-start gap-4">
+            <div className="h-10 w-10 rounded-2xl bg-[linear-gradient(135deg,#00f5a0,#5be7ff)] grid place-items-center text-emerald-950 shrink-0 shadow-[0_8px_24px_-8px_rgba(0,245,160,0.6)]">
+              <I.Sparkle size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-xs uppercase tracking-[0.14em] text-white/55">
+                  Herdwise AI · Executive summary
+                </span>
+                <Badge tone="aurora">Claude Opus 4.7</Badge>
+              </div>
+              <p className="text-sm sm:text-[15px] text-white/90 leading-relaxed text-pretty">
+                {aiSummary}
+              </p>
+            </div>
+          </div>
+        </GlassCard>
+      )}
 
       {/* ===== Two-column body ===== */}
       <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">

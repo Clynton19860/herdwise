@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/app/sidebar";
 import { MobileNavProvider } from "@/components/app/mobile-nav";
+import { AskHerdwise } from "@/components/ai/ask-herdwise";
 
 export default function AppLayout({
   children,
@@ -14,6 +15,7 @@ export default function AppLayout({
           {children}
         </main>
       </div>
+      <AskHerdwise />
     </MobileNavProvider>
   );
 }

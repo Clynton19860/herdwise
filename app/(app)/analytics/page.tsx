@@ -5,15 +5,60 @@ import { I } from "@/components/ui/icon";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Bars } from "@/components/charts/bars";
 import { Ring } from "@/components/charts/ring";
-import { trendSeries } from "@/lib/data";
+import { animals, geofences, incidents, owners, platformStats, trendSeries } from "@/lib/data";
+import { generateAiSummary } from "@/lib/ai-server";
 
-export default function AnalyticsPage() {
+export default async function AnalyticsPage() {
+  const briefing = await generateAiSummary({
+    system:
+      "You are Herdwise, the AI co-pilot for the City of Harare livestock platform. Write a tight three-sentence executive briefing for a municipal supervisor. Lead with the single most important signal, cite specific numbers (animals tracked, devices online, open incidents, anomalies), and end with one clear recommended next action. No headers, no bullets, no preamble — just the briefing as prose.",
+    user: JSON.stringify({
+      ...platformStats,
+      counts: {
+        animals: animals.length,
+        owners: owners.length,
+        geofences: geofences.length,
+        incidents: incidents.length,
+      },
+      alerts: animals.filter((a) => a.status === "Alert" || a.status === "Quarantined").length,
+      open_incidents: incidents.filter((i) => i.status === "Open" || i.status === "Escalated").length,
+      trends: trendSeries,
+    }),
+    maxTokens: 350,
+    effort: "low",
+  });
   return (
     <>
       <Topbar
         title="Analytics"
         subtitle="Operational, agricultural and economic intelligence"
       />
+
+      {briefing && (
+        <GlassCard className="p-5 sm:p-6 lg:p-7 relative overflow-hidden">
+          <div className="absolute -top-20 -right-20 h-56 w-56 rounded-full bg-emerald-400/20 blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/15 blur-3xl animate-blob" />
+          <div className="relative flex items-start gap-4">
+            <div className="h-11 w-11 rounded-2xl bg-[linear-gradient(135deg,#00f5a0,#5be7ff)] grid place-items-center text-emerald-950 shrink-0 shadow-[0_12px_32px_-10px_rgba(0,245,160,0.6)]">
+              <I.Sparkle size={20} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="text-[11px] uppercase tracking-[0.14em] text-white/55">
+                  Herdwise AI · Morning briefing
+                </span>
+                <Badge tone="aurora" dot>
+                  Live
+                </Badge>
+                <Badge tone="cyan">Claude Opus 4.7</Badge>
+              </div>
+              <p className="text-base sm:text-lg text-white/90 leading-relaxed text-pretty">
+                {briefing}
+              </p>
+            </div>
+          </div>
+        </GlassCard>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
         <GlassCard className="p-6 lg:p-8 lg:col-span-2 relative overflow-hidden">
