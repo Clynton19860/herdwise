@@ -12,6 +12,10 @@ export default async function TrackingPage() {
     getAnimals(), getGeofences(), getRecentActivity(),
     getMapAnimals(), getMapParcels(),
   ]);
+
+  const zoneCount = (t: string) => geofences.filter((g) => g.type === t).length;
+  const plural = (n: number, noun: string) =>
+    n === 0 ? `none yet` : `${n} ${noun}${n === 1 ? "" : "s"}`;
   const live = animals.filter((a) => a.device.lastSyncMin < 10).length;
   const offline = animals.length - live;
 
@@ -47,11 +51,13 @@ export default async function TrackingPage() {
               <Badge tone="aurora">5 active</Badge>
             </div>
             <ul className="space-y-2">
-              <LayerToggle color="#34c071" label="Animal positions" hint="12 active pins" on />
-              <LayerToggle color="#5be7ff" label="Watering points" hint="1 cluster" on />
-              <LayerToggle color="#ffb547" label="Grazing zones"   hint="3 polygons" on />
-              <LayerToggle color="#ff6b6b" label="Restricted areas" hint="1 polygon" on />
-              <LayerToggle color="#8c7cff" label="Quarantine zones" hint="1 polygon" on />
+              {/* Every count derived. A layer with nothing in it says so
+                  rather than quoting a number that was never true. */}
+              <LayerToggle color="#34c071" label="Animal positions" hint={plural(mapAnimals.length, "pin")} on />
+              <LayerToggle color="#5be7ff" label="Watering points"  hint={plural(zoneCount("Watering"), "zone")} on={zoneCount("Watering") > 0} />
+              <LayerToggle color="#ffb547" label="Grazing zones"    hint={plural(zoneCount("Grazing"), "zone")} on={zoneCount("Grazing") > 0} />
+              <LayerToggle color="#ff6b6b" label="Restricted areas" hint={plural(zoneCount("Restricted"), "zone")} on={zoneCount("Restricted") > 0} />
+              <LayerToggle color="#8c7cff" label="Quarantine zones" hint={plural(zoneCount("Quarantine"), "zone")} on={zoneCount("Quarantine") > 0} />
               <LayerToggle color="#ffffff" label="Movement trails"  hint="last 24h" />
               <LayerToggle color="#00f5a0" label="Heatmap density"  hint="grazing pressure" />
             </ul>

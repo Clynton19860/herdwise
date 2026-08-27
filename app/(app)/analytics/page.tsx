@@ -5,12 +5,13 @@ import { I } from "@/components/ui/icon";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Bars } from "@/components/charts/bars";
 import { Ring } from "@/components/charts/ring";
-import { getAnimals, getGeofences, getIncidents, getOwners, getPlatformStats, getTrendSeries } from "@/lib/db";
+import { getAnimals, getGeofences, getIncidents, getMovementStats, getOwners, getPlatformStats, getTrendSeries } from "@/lib/db";
 import { generateAiSummary } from "@/lib/ai-server";
 
 export default async function AnalyticsPage() {
-  const [animals, geofences, incidents, owners, platformStats, trendSeries] = await Promise.all([
+  const [animals, geofences, incidents, owners, platformStats, trendSeries, movement] = await Promise.all([
     getAnimals(), getGeofences(), getIncidents(), getOwners(), getPlatformStats(), getTrendSeries(),
+    getMovementStats({}),
   ]);
   const briefing = await generateAiSummary({
     system:
@@ -78,8 +79,16 @@ export default async function AnalyticsPage() {
               <Sparkline data={trendSeries.movement} color="#5be7ff" height={140} />
             </div>
             <div className="mt-4 grid grid-cols-3 gap-3">
-              <Tile label="Median distance" value="3.4 km" hint="per animal · day" />
-              <Tile label="Peak grazing hour" value="07:18" hint="across all wards" />
+              <Tile
+                label="Avg distance"
+                value={movement.avgKmPerAnimal != null ? `${movement.avgKmPerAnimal} km` : "—"}
+                hint={`per animal · ${movement.windowDays}d`}
+              />
+              <Tile
+                label="Most active hour"
+                value={movement.peakHour ?? "—"}
+                hint={movement.peakHour ? "by distance travelled" : "needs more fixes"}
+              />
               <Tile label="Rest periods" value="3.1" hint="avg. per day" />
             </div>
           </div>

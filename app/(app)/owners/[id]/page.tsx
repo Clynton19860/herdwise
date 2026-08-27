@@ -9,14 +9,15 @@ import { ScopedMap } from "@/components/app/scoped-map";
 import { Ring } from "@/components/charts/ring";
 import { Sparkline } from "@/components/charts/sparkline";
 import { StatusBadge, BatteryBar, SeverityBadge, IncidentStatusBadge } from "@/components/app/indicators";
-import { getAnimals, getGeofences, getIncidents, getOwner } from "@/lib/db";
+import { getAnimals, getGeofences, getIncidents, getMovementStats, getOwner } from "@/lib/db";
 
 type Params = Promise<{ id: string }>;
 
 export default async function OwnerDetailPage({ params }: { params: Params }) {
   const { id } = await params;
-  const [owner, animals, geofences, incidents] = await Promise.all([
+  const [owner, animals, geofences, incidents, movement] = await Promise.all([
     getOwner(id), getAnimals(), getGeofences(), getIncidents(),
+    getMovementStats({ ownerId: id }),
   ]);
   if (!owner) notFound();
 
@@ -286,9 +287,23 @@ export default async function OwnerDetailPage({ params }: { params: Params }) {
             />
           </div>
           <div className="mt-4 grid grid-cols-3 gap-3">
-            <MicroStat label="Total km" value="56.7" hint="14 days" />
-            <MicroStat label="Avg per animal" value="4.1 km/d" hint="14-day mean" />
-            <MicroStat label="Active days" value="14/14" hint="100%" />
+            {/* Derived from GPS fixes. A dash means not enough telemetry yet —
+                better than a number nobody measured. */}
+            <MicroStat
+              label="Total km"
+              value={movement.totalKm != null ? movement.totalKm.toFixed(1) : "—"}
+              hint={`${movement.windowDays} days`}
+            />
+            <MicroStat
+              label="Avg per animal"
+              value={movement.avgKmPerAnimal != null ? `${movement.avgKmPerAnimal} km` : "—"}
+              hint={movement.animals ? `${movement.animals} reporting` : "none reporting"}
+            />
+            <MicroStat
+              label="Active days"
+              value={`${movement.activeDays}/${movement.windowDays}`}
+              hint={movement.activeDays ? "with GPS fixes" : "no fixes yet"}
+            />
           </div>
         </GlassCard>
 

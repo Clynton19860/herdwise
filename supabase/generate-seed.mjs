@@ -48,7 +48,8 @@ const zones = [...src.matchAll(
   /\{ id: "(g-\d+)", name: "([^"]+)", type: "(\w+)", ward: "([^"]+)", hectares: (\d+), capacity: (\d+), occupancy: (\d+),\s*\n\s*polygon: (\[[^\n]*\])/g,
 )].map((m) => ({
   id: m[1], name: m[2], type: m[3].toLowerCase(), ward: m[4],
-  capacity: +m[6], poly: JSON.parse(m[8].replace(/\s*\}\s*,?\s*$/, '')),
+  hectares: +m[5], capacity: +m[6],
+  poly: JSON.parse(m[8].replace(/\s*\}\s*,?\s*$/, '')),
 }));
 
 const incidents = [...src.matchAll(
@@ -70,8 +71,43 @@ console.log(`parsed ${owners.length} owners, ${animals.length} animals, ${zones.
 
 /* ------------------------------------------------------------------ emit */
 
-const wkt = (poly) => {
-  const pts = poly.map(([x, y]) => { const [la, ln] = toLL(x, y); return `${ln.toFixed(6)} ${la.toFixed(6)}`; });
+/** Geodesic-ish area in hectares: project to local metres, then shoelace. */
+function areaHa(ring) {
+  const lat0 = ring.reduce((s, p) => s + p[0], 0) / ring.length;
+  const lng0 = ring.reduce((s, p) => s + p[1], 0) / ring.length;
+  const mx = (lng) => (lng - lng0) * 111320 * Math.cos((lat0 * Math.PI) / 180);
+  const my = (lat) => (lat - lat0) * 110540;
+  let a = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const [la1, ln1] = ring[i];
+    const [la2, ln2] = ring[(i + 1) % ring.length];
+    a += mx(ln1) * my(la2) - mx(ln2) * my(la1);
+  }
+  return Math.abs(a) / 2 / 10000;
+}
+
+/**
+ * Scale a ring about its centroid until it covers `targetHa`.
+ *
+ * The prototype's polygons are decorative shapes in a 0-100 canvas, and
+ * projecting them across the whole 30 km Harare bounding box inflates them
+ * about thirtyfold — Hatcliffe came out at 4,711 ha, 6.5 km across, which is
+ * not a livestock paddock. The prototype did declare sensible hectares next to
+ * each shape, so honour those: keep the layout, fix the scale.
+ */
+function scaleToHectares(ring, targetHa) {
+  const current = areaHa(ring);
+  if (!current || !targetHa) return ring;
+  const f = Math.sqrt(targetHa / current);
+  const lat0 = ring.reduce((s, p) => s + p[0], 0) / ring.length;
+  const lng0 = ring.reduce((s, p) => s + p[1], 0) / ring.length;
+  return ring.map(([la, ln]) => [lat0 + (la - lat0) * f, lng0 + (ln - lng0) * f]);
+}
+
+const wkt = (poly, targetHa) => {
+  let ring = poly.map(([x, y]) => toLL(x, y));           // [lat, lng]
+  ring = scaleToHectares(ring, targetHa);
+  const pts = ring.map(([la, ln]) => `${ln.toFixed(6)} ${la.toFixed(6)}`);
   pts.push(pts[0]);
   return `POLYGON((${pts.join(', ')}))`;
 };
@@ -115,9 +151,9 @@ L.push('');
 
 for (const z of zones) {
   if (z.type === 'grazing') {
-    L.push(`insert into land_parcels (id, reference, name, tenure, ward_id, geom) values (${parcelUid(z.id)}, ${q(`HRE-P-${z.id.slice(2)}`)}, ${q(z.name)}, 'communal', (select id from wards where name like ${q(`${z.ward}%`)} limit 1), st_geogfromtext(${q(wkt(z.poly))}));`);
+    L.push(`insert into land_parcels (id, reference, name, tenure, ward_id, geom) values (${parcelUid(z.id)}, ${q(`HRE-P-${z.id.slice(2)}`)}, ${q(z.name)}, 'communal', (select id from wards where name like ${q(`${z.ward}%`)} limit 1), st_geogfromtext(${q(wkt(z.poly, z.hectares))}));`);
   }
-  L.push(`insert into geofences (name, type, ward_id, geom, capacity) values (${q(z.name)}, ${q(z.type)}, (select id from wards where name like ${q(`${z.ward}%`)} limit 1), st_geogfromtext(${q(wkt(z.poly))}), ${n(z.capacity || null)});`);
+  L.push(`insert into geofences (name, type, ward_id, geom, capacity) values (${q(z.name)}, ${q(z.type)}, (select id from wards where name like ${q(`${z.ward}%`)} limit 1), st_geogfromtext(${q(wkt(z.poly, z.hectares))}), ${n(z.capacity || null)});`);
 }
 L.push('');
 

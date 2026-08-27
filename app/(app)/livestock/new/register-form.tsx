@@ -399,7 +399,7 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
           {deviceType !== "None" && (
             <div className="grid md:grid-cols-3 gap-3">
               <Pulse label="Signal" value="Strong" tone="text-emerald-300" hint="-62 dBm" />
-              <Pulse label="Battery" value="86%" tone="text-amber-200" hint="Healthy" />
+              <Pulse label="Battery" value="—" tone="text-white/40" hint="Reported after pairing" />
               <Pulse label="Last sync" value="just now" tone="text-cyan-300" hint="MQTT · ingest-3" />
             </div>
           )}

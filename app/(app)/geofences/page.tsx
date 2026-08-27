@@ -39,7 +39,13 @@ export default async function GeofencesPage() {
         <Kpi label="Active zones" value={geofences.length.toString()} hint="across 6 wards" />
         <Kpi label="Total hectares" value={totalHa.toLocaleString()} hint="under management" />
         <Kpi label="Capacity" value={capacity.toString()} hint="permitted livestock" />
-        <Kpi label="Occupancy" value={`${Math.round((occupancy / capacity) * 100)}%`} hint={`${occupancy} of ${capacity}`} />
+        <Kpi
+          label="Occupancy"
+          // No zones, or zones with no stated capacity, means there is nothing
+          // to be a percentage of — show a dash rather than NaN.
+          value={capacity > 0 ? `${Math.round((occupancy / capacity) * 100)}%` : "—"}
+          hint={capacity > 0 ? `${occupancy} of ${capacity}` : "no capacity set"}
+        />
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3">

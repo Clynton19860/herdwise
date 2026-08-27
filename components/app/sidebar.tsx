@@ -21,7 +21,7 @@ const items: NavItem[] = [
   { href: "/livestock",  label: "Livestock",  icon: <I.Cow size={18} /> },
   { href: "/owners",     label: "Owners",     icon: <I.Users size={18} /> },
   { href: "/geofences",  label: "Geofences",  icon: <I.Layers size={18} /> },
-  { href: "/incidents",  label: "Incidents",  icon: <I.Alert size={18} />, badgeTone: "coral", badge: "14" },
+  { href: "/incidents",  label: "Incidents",  icon: <I.Alert size={18} /> },
   { href: "/health",     label: "Health",     icon: <I.Stethoscope size={18} /> },
   { href: "/analytics",  label: "Analytics",  icon: <I.Activity size={18} /> },
 ];

@@ -19,7 +19,7 @@ export default async function OwnersPage() {
 
       <div className="grid-stagger grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
         <Kpi label="Registered farmers" value={owners.length.toString()} hint="National ID verified" />
-        <Kpi label="Active wards" value="6" hint="of 46 in Harare" />
+        <Kpi label="Active wards" value={String(new Set(owners.map((o) => o.ward)).size)} hint="with registered stock" />
         <Kpi label="Total herd" value={totalHerd.toLocaleString()} hint="animals managed" />
         <Kpi label="Avg. herd" value={(totalHerd / owners.length).toFixed(1)} hint="head per farmer" />
       </div>

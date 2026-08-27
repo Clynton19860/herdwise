@@ -523,3 +523,50 @@ export async function createParcel({
   );
   return rows[0];
 }
+
+/**
+ * Movement derived from consecutive GPS fixes.
+ *
+ * Only GPS: a WiFi fix can be 70 m off a stationary animal, which would
+ * accumulate kilometres of phantom travel. Returns nulls rather than zeros when
+ * there is not enough telemetry yet, so the UI can say so instead of implying
+ * the herd stood still.
+ */
+export async function getMovementStats(opts: { ownerId?: string; animalId?: string; days?: number } = {}) {
+  const days = opts.days ?? 14;
+  const [row] = await query<{
+    total_km: string | null; animals: string; active_days: string; median_speed: string | null;
+    peak_hour: string | null;
+  }>(`
+    with steps as (
+      select f.animal_id, f.recorded_at, f.speed_kph,
+             st_distance(f.geom, lag(f.geom) over (partition by f.animal_id order by f.recorded_at)) as step_m
+        from fixes f
+        join animals a on a.id = f.animal_id
+       where f.fix = 'gps'
+         and f.recorded_at > now() - make_interval(days => $1)
+         and ($2::uuid is null or a.owner_id = $2::uuid)
+         and ($3::uuid is null or a.id = $3::uuid)
+    )
+    select
+      round((sum(step_m) filter (where step_m < 5000) / 1000.0)::numeric, 1) as total_km,
+      count(distinct animal_id) as animals,
+      count(distinct recorded_at::date) as active_days,
+      round(percentile_cont(0.5) within group (order by speed_kph)::numeric, 1) as median_speed,
+      (select to_char(date_trunc('hour', recorded_at), 'HH24:00') from steps
+        where step_m > 0 group by 1 order by sum(step_m) desc limit 1) as peak_hour
+    from steps`,
+    [days, opts.ownerId ?? null, opts.animalId ?? null]);
+
+  const n = Number(row?.animals ?? 0);
+  const totalKm = row?.total_km != null ? Number(row.total_km) : null;
+  return {
+    totalKm,
+    animals: n,
+    activeDays: Number(row?.active_days ?? 0),
+    windowDays: days,
+    avgKmPerAnimal: totalKm != null && n > 0 ? Number((totalKm / n).toFixed(1)) : null,
+    medianSpeedKph: row?.median_speed != null ? Number(row.median_speed) : null,
+    peakHour: row?.peak_hour ?? null,
+  };
+}
