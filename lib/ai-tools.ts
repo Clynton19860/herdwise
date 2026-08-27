@@ -1,13 +1,17 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import {
-  animals,
-  geofences,
-  incidents,
-  owners,
-  platformStats,
-  findAnimal,
-  findOwner,
-} from "./data";
+  getAnimals,
+  getAnimal,
+  getComposition,
+  getGeofence,
+  getGeofences,
+  getIncident,
+  getIncidents,
+  getMovementStats,
+  getOwner,
+  getOwners,
+  getPlatformStats,
+} from "./db";
 
 /* ---------- Tool schemas sent to Claude ---------- */
 
@@ -145,10 +149,6 @@ function s(v: unknown): string {
   return typeof v === "string" ? v.toLowerCase() : "";
 }
 
-function compact<T>(x: T): T {
-  return x;
-}
-
 export async function executeTool(name: string, rawInput: unknown): Promise<unknown> {
   const input = (typeof rawInput === "object" && rawInput !== null ? rawInput : {}) as ToolInput;
 
@@ -157,9 +157,12 @@ export async function executeTool(name: string, rawInput: unknown): Promise<unkn
       const q = s(input.query);
       const ward = s(input.ward);
       const ownerName = s(input.owner_name);
+      const [animals, owners] = await Promise.all([getAnimals(), getOwners()]);
+      const byId = new Map(owners.map((o) => [o.id, o]));
+
       const result = animals
-        .filter((a) => (!input.species || a.species === input.species))
-        .filter((a) => (!input.status || a.status === input.status))
+        .filter((a) => !input.species || a.species === input.species)
+        .filter((a) => !input.status || a.status === input.status)
         .filter((a) => {
           if (!q) return true;
           return (
@@ -171,62 +174,58 @@ export async function executeTool(name: string, rawInput: unknown): Promise<unkn
         })
         .filter((a) => {
           if (!ward && !ownerName) return true;
-          const o = findOwner(a.ownerId);
+          const o = byId.get(a.ownerId);
           if (!o) return false;
-          const wardOk = !ward || o.ward.toLowerCase().includes(ward);
-          const nameOk = !ownerName || o.fullName.toLowerCase().includes(ownerName);
-          return wardOk && nameOk;
+          return (
+            (!ward || o.ward.toLowerCase().includes(ward)) &&
+            (!ownerName || o.fullName.toLowerCase().includes(ownerName))
+          );
         })
         .slice(0, 25)
         .map((a) => {
-          const o = findOwner(a.ownerId);
-          return compact({
-            id: a.id,
-            tag: a.tag,
-            name: a.name,
-            species: a.species,
-            breed: a.breed,
-            sex: a.sex,
-            age_months: a.ageMonths,
-            status: a.status,
-            zone: a.location.zone,
-            device: { type: a.device.type, battery: a.device.battery, signal: a.device.signal, last_sync_min: a.device.lastSyncMin },
+          const o = byId.get(a.ownerId);
+          return {
+            id: a.id, tag: a.tag, name: a.name, species: a.species, breed: a.breed,
+            sex: a.sex, age_months: a.ageMonths, status: a.status, zone: a.location.zone,
+            device: {
+              type: a.device.type, battery: a.device.battery,
+              signal: a.device.signal, last_sync_min: a.device.lastSyncMin,
+            },
             owner: o ? { id: o.id, name: o.fullName, phone: o.phone, ward: o.ward } : null,
-          });
+          };
         });
       return { count: result.length, animals: result };
     }
 
     case "get_animal": {
-      const key = s(input.id_or_tag).replace(/\s+/g, "");
-      const a = animals.find(
-        (x) => x.id.toLowerCase() === key || x.tag.toLowerCase().replace(/\s+/g, "") === key
-      );
+      const key = String(input.id_or_tag ?? "").trim();
+      const a = await getAnimal(key);
       if (!a) return { error: `No animal found for "${input.id_or_tag}"` };
-      const o = findOwner(a.ownerId);
-      return compact({
+      const [owner, movement] = await Promise.all([
+        getOwner(a.ownerId),
+        getMovementStats({ animalId: a.id }),
+      ]);
+      return {
         id: a.id, tag: a.tag, name: a.name, species: a.species, breed: a.breed,
-        sex: a.sex, age_months: a.ageMonths, color: a.color, weight_kg: a.weightKg,
+        sex: a.sex, age_months: a.ageMonths, colour: a.color, weight_kg: a.weightKg,
         status: a.status, registered_on: a.registeredOn,
         device: a.device,
         location: a.location,
         health: a.health,
-        owner: o,
-      });
+        movement_last_14_days: movement,
+        owner,
+      };
     }
 
     case "search_owners": {
       const q = s(input.query);
       const ward = s(input.ward);
+      const owners = await getOwners();
       const result = owners
-        .filter((o) => {
-          if (!q) return true;
-          return (
-            o.fullName.toLowerCase().includes(q) ||
-            o.phone.toLowerCase().includes(q) ||
-            o.nationalId.toLowerCase().includes(q)
-          );
-        })
+        .filter((o) => !q ||
+          o.fullName.toLowerCase().includes(q) ||
+          o.phone.toLowerCase().includes(q) ||
+          o.nationalId.toLowerCase().includes(q))
         .filter((o) => !ward || o.ward.toLowerCase().includes(ward))
         .slice(0, 25);
       return { count: result.length, owners: result };
@@ -234,20 +233,22 @@ export async function executeTool(name: string, rawInput: unknown): Promise<unkn
 
     case "get_owner": {
       const key = s(input.id_or_name);
+      const owners = await getOwners();
       const o = owners.find(
-        (x) => x.id.toLowerCase() === key || x.fullName.toLowerCase().includes(key)
+        (x) => x.id.toLowerCase() === key || x.fullName.toLowerCase().includes(key),
       );
       if (!o) return { error: `No owner found for "${input.id_or_name}"` };
+      const animals = await getAnimals();
       const herd = animals.filter((a) => a.ownerId === o.id);
-      return compact({
+      return {
         ...o,
         herd: herd.map((a) => ({ id: a.id, tag: a.tag, species: a.species, status: a.status })),
-      });
+      };
     }
 
     case "list_geofences": {
       const ward = s(input.ward);
-      const result = geofences
+      const result = (await getGeofences())
         .filter((g) => !input.type || g.type === input.type)
         .filter((g) => !ward || g.ward.toLowerCase().includes(ward));
       return { count: result.length, geofences: result };
@@ -255,15 +256,19 @@ export async function executeTool(name: string, rawInput: unknown): Promise<unkn
 
     case "get_geofence": {
       const key = s(input.id_or_name);
-      const g = geofences.find(
-        (x) => x.id.toLowerCase() === key || x.name.toLowerCase().includes(key)
-      );
+      const zones = await getGeofences();
+      const g = zones.find(
+        (x) => x.id.toLowerCase() === key || x.name.toLowerCase().includes(key),
+      ) ?? (await getGeofence(String(input.id_or_name ?? "")));
       if (!g) return { error: `No geofence found for "${input.id_or_name}"` };
       return g;
     }
 
     case "list_incidents": {
       const zone = s(input.zone);
+      const [incidents, animals, owners] = await Promise.all([
+        getIncidents(), getAnimals(), getOwners(),
+      ]);
       const result = incidents
         .filter((i) => !input.status || i.status === input.status)
         .filter((i) => !input.severity || i.severity === input.severity)
@@ -271,44 +276,37 @@ export async function executeTool(name: string, rawInput: unknown): Promise<unkn
         .filter((i) => !zone || i.location.label.toLowerCase().includes(zone))
         .map((i) => ({
           ...i,
-          animal: i.animalId ? findAnimal(i.animalId) : null,
-          owner: i.ownerId ? findOwner(i.ownerId) : null,
+          animal: animals.find((a) => a.id === i.animalId) ?? null,
+          owner: owners.find((o) => o.id === i.ownerId) ?? null,
         }));
       return { count: result.length, incidents: result };
     }
 
     case "get_incident": {
-      const key = s(input.ref_or_id);
-      const i = incidents.find(
-        (x) => x.id.toLowerCase() === key || x.ref.toLowerCase() === key
-      );
+      const i = await getIncident(String(input.ref_or_id ?? ""));
       if (!i) return { error: `No incident found for "${input.ref_or_id}"` };
-      return compact({
-        ...i,
-        animal: i.animalId ? findAnimal(i.animalId) : null,
-        owner: i.ownerId ? findOwner(i.ownerId) : null,
-      });
+      const [animal, owner] = await Promise.all([
+        i.animalId ? getAnimal(i.animalId) : null,
+        i.ownerId ? getOwner(i.ownerId) : null,
+      ]);
+      return { ...i, animal, owner };
     }
 
     case "platform_overview": {
-      const speciesCounts = animals.reduce<Record<string, number>>((acc, a) => {
-        acc[a.species] = (acc[a.species] ?? 0) + 1;
-        return acc;
-      }, {});
-      const statusCounts = animals.reduce<Record<string, number>>((acc, a) => {
-        acc[a.status] = (acc[a.status] ?? 0) + 1;
-        return acc;
-      }, {});
+      const [stats, composition, movement, animals] = await Promise.all([
+        getPlatformStats(), getComposition(), getMovementStats({}), getAnimals(),
+      ]);
       return {
-        ...platformStats,
-        live_dataset: {
-          animals: animals.length,
-          owners: owners.length,
-          geofences: geofences.length,
-          incidents: incidents.length,
-          species_breakdown: speciesCounts,
-          status_breakdown: statusCounts,
-        },
+        ...stats,
+        species_breakdown: composition.species,
+        status_breakdown: composition.status,
+        movement_last_14_days: movement,
+        // Say plainly how small the dataset is, so the assistant does not
+        // present a single bench device as a fleet.
+        note:
+          animals.length <= 2
+            ? "This is a pilot deployment with a very small number of real devices. Report the actual figures; do not extrapolate."
+            : undefined,
       };
     }
 
