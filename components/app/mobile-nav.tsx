@@ -151,7 +151,7 @@ function MobileDrawer({ operator }: { operator?: Operator | null }) {
           </div>
 
           <div className="px-2 pb-1">
-            <Badge tone="aurora" dot>City of Harare · Pilot</Badge>
+            <Badge tone="aurora" dot>{operator?.ward ? `${operator.ward} · Pilot` : "Pilot"}</Badge>
           </div>
 
           <nav className="mt-5 flex-1 overflow-y-auto pretty-scroll -mr-1 pr-1">

@@ -471,7 +471,7 @@ export async function getOpenBreaches() {
 export type MapAnimal = {
   animal_id: string; tag: string; name: string | null;
   species: string; status: string; owner_name: string | null;
-  imei: string | null; battery_pct: number | null;
+  battery_pct: number | null;
   last_fix_at: string | null; last_fix_type: string | null;
   lat: number | null; lng: number | null;
   parcel_id: string | null; parcel_name: string | null;
@@ -487,10 +487,23 @@ export type MapParcel = {
   animal_count: string;
 };
 
-/** Everything the live map draws, in real coordinates — no canvas projection. */
+/**
+ * Everything the live map draws, in real coordinates — no canvas projection.
+ *
+ * Columns are named rather than `select *` so the view cannot quietly publish a
+ * new field. In particular the IMEI stays out: the tag protocol treats it as the
+ * device's whole identity, the gateway listens on a public address, and this
+ * endpoint is readable with the anon key — so anyone holding an IMEI could
+ * inject fabricated positions for that animal. The map never needed it.
+ */
 export async function getMapAnimals(): Promise<MapAnimal[]> {
   return query<MapAnimal>(
-    `select * from map_animals where lat is not null order by tag`);
+    `select animal_id, tag, name, species, status, owner_name, battery_pct,
+            last_fix_at, last_fix_type, lat, lng, parcel_id, parcel_name,
+            containment_state, distance_m
+       from map_animals
+      where lat is not null
+      order by tag`);
 }
 
 export async function getMapParcels(): Promise<MapParcel[]> {

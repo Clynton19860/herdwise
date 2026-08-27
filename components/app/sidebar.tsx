@@ -101,7 +101,7 @@ export function Sidebar({ operator }: { operator?: Operator | null }) {
 
         {!collapsed && (
           <div className="px-2 pb-1 animate-[fade-in_0.4s_ease-out]">
-            <Badge tone="aurora" dot>City of Harare · Pilot</Badge>
+            <Badge tone="aurora" dot>{operator?.ward ? `${operator.ward} · Pilot` : "Pilot"}</Badge>
           </div>
         )}
 

@@ -15,12 +15,12 @@ export default function SettingsPage() {
       <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
         <GlassCard className="p-6 lg:p-7">
           <h3 className="text-base font-semibold tracking-tight">Workspace</h3>
-          <p className="text-xs text-white/55">City of Harare · Pilot tenant</p>
+          <p className="text-xs text-white/55">Pilot tenant · one ward live</p>
 
           <div className="mt-5 space-y-4">
             <Row label="Tenant" value="City of Harare" />
-            <Row label="Region" value="Zimbabwe · ZW-HA" />
-            <Row label="Data residency" value="Africa · za-jhb-1" />
+            <Row label="Target deployment" value="Zimbabwe · ZW-HA" />
+            <Row label="Data residency" value="West EU · aws-eu-west-1 (Ireland)" />
             <Row label="Plan" value="Municipal Pilot" badge="Active" />
           </div>
         </GlassCard>
