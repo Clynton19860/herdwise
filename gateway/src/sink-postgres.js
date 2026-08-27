@@ -52,6 +52,31 @@ export class PostgresSink {
     });
   }
 
+  /**
+   * The tag's clock is not a source of truth.
+   *
+   * The HCS048 sets its clock from the network and gets it wrong: this unit
+   * reports times hours ahead of real. A fix stamped in the future is not a
+   * cosmetic problem — `last_fix_at` then reads "last seen in 7 hours", the
+   * speed calculation in `record_fix()` divides by a negative interval, and the
+   * row sorts ahead of every genuine fix.
+   *
+   * So the device clock is accepted only when it is plausible. Times in the past
+   * are always allowed: a tag that was out of coverage legitimately uploads a
+   * backlog. Times in the future are impossible, so those fall back to the
+   * moment we received the packet. Either way the device's raw string is stored
+   * in `device_time_raw`, so nothing is lost and the drift stays diagnosable.
+   */
+  static MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
+
+  recordedAt(deviceTime, now = new Date()) {
+    if (!deviceTime) return now;
+    if (deviceTime.getTime() - now.getTime() > PostgresSink.MAX_FUTURE_SKEW_MS) {
+      return now;
+    }
+    return deviceTime;
+  }
+
   async savePosition(p) {
     const g = p.gps;
     // An unpositioned fix repeats the last known coordinates per the vendor
@@ -67,7 +92,7 @@ export class PostgresSink {
         p.fixType ?? 'none',
         g.lat,
         g.lng,
-        (g.timestamp ?? new Date()).toISOString(),
+        this.recordedAt(g.timestamp).toISOString(),
         g.timeRaw ?? null,
         g.speedKph,
         g.headingDeg,

@@ -36,14 +36,30 @@ const toolLabels: Record<string, string> = {
   navigate: "Preparing navigation",
 };
 
-const SUGGESTIONS: { icon: React.ReactNode; text: string }[] = [
-  { icon: <I.Alert size={14} />, text: "Which animals need attention right now?" },
-  { icon: <I.Map size={14} />,   text: "What's happening in Kuwadzana today?" },
-  { icon: <I.Cow size={14} />,   text: "Show me HRE-CTL-00184" },
-  { icon: <I.Activity size={14} />, text: "Give me a 30-second platform overview" },
-];
+/**
+ * Opening suggestions, built from data that exists.
+ *
+ * These were fixed strings naming a ward and an ear tag that were never in the
+ * database, so the first thing anyone clicked came back empty. A suggestion is
+ * a promise that there is something to find — so a chip only appears when the
+ * record it names is really there.
+ */
+function suggestionsFor(tag: string | null, ward: string | null) {
+  const out: { icon: React.ReactNode; text: string }[] = [
+    { icon: <I.Alert size={14} />, text: "Which animals need attention right now?" },
+  ];
+  if (ward) out.push({ icon: <I.Map size={14} />, text: `What's happening in ${ward} today?` });
+  if (tag) out.push({ icon: <I.Cow size={14} />, text: `Show me ${tag}` });
+  out.push({ icon: <I.Activity size={14} />, text: "Give me a 30-second platform overview" });
+  return out;
+}
 
-export function AskHerdwise({ enabled = true }: { enabled?: boolean }) {
+export function AskHerdwise({
+  enabled = true,
+  sampleTag = null,
+  sampleWard = null,
+}: { enabled?: boolean; sampleTag?: string | null; sampleWard?: string | null }) {
+  const SUGGESTIONS = suggestionsFor(sampleTag, sampleWard);
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -294,7 +310,7 @@ export function AskHerdwise({ enabled = true }: { enabled?: boolean }) {
           w-[calc(100vw-1.5rem)] sm:w-[440px] md:w-[480px] lg:w-[520px] max-w-[560px]
           ${open ? "translate-x-0 opacity-100" : "translate-x-[120%] opacity-0 pointer-events-none"}`}
       >
-        <div className="glass-heavy rounded-3xl h-full flex flex-col overflow-hidden">
+        <div className="glass-solid rounded-3xl h-full flex flex-col overflow-hidden">
           {/* Header */}
           <header className="px-4 sm:px-5 py-4 flex items-center gap-3 border-b border-white/8">
             <div className="relative h-10 w-10 rounded-2xl bg-[linear-gradient(135deg,#00f5a0,#5be7ff)] grid place-items-center text-emerald-950 shadow-[0_8px_24px_-8px_rgba(0,245,160,0.6)] shrink-0">
@@ -331,7 +347,7 @@ export function AskHerdwise({ enabled = true }: { enabled?: boolean }) {
           {/* Body */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto pretty-scroll px-4 sm:px-5 py-5 space-y-4">
             {turns.length === 0 ? (
-              <Welcome onPick={(t) => send(t)} />
+              <Welcome onPick={(t) => send(t)} suggestions={SUGGESTIONS} />
             ) : (
               turns.map((t, i) => (
                 <Turn
@@ -411,7 +427,13 @@ export function AskHerdwise({ enabled = true }: { enabled?: boolean }) {
 
 /* ---------- Welcome / Suggestions ---------- */
 
-function Welcome({ onPick }: { onPick: (t: string) => void }) {
+function Welcome({
+  onPick,
+  suggestions,
+}: {
+  onPick: (t: string) => void;
+  suggestions: { icon: React.ReactNode; text: string }[];
+}) {
   return (
     <div className="space-y-5 py-2 page-enter">
       <div className="glass-thin rounded-3xl p-5 relative overflow-hidden">
@@ -419,7 +441,7 @@ function Welcome({ onPick }: { onPick: (t: string) => void }) {
         <div className="relative">
           <div className="flex items-center gap-2">
             <span className="chip" style={{ borderColor: "rgba(0,245,160,0.35)", color: "#c8ffe9" }}>
-              Hello, Inspector
+              Connected to live data
             </span>
           </div>
           <h3 className="mt-3 text-xl font-semibold tracking-tight">
@@ -435,7 +457,7 @@ function Welcome({ onPick }: { onPick: (t: string) => void }) {
         <div className="text-[10px] uppercase tracking-[0.14em] text-white/45 px-1">
           Try one of these
         </div>
-        {SUGGESTIONS.map((s, i) => (
+        {suggestions.map((s, i) => (
           <button
             key={i}
             onClick={() => onPick(s.text)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { WizardShell, type WizardStep } from "@/components/wizard/wizard";
 import { SuccessScreen } from "@/components/wizard/success";
 import { PolygonDrawer } from "@/components/wizard/polygon-drawer";
@@ -36,14 +36,6 @@ const zoneTypeOptions: RadioCardOption[] = [
   { value: "Quarantine", label: "Quarantine", description: "Disease isolation — entry/exit fully audited",     icon: <I.Stethoscope size={20} /> },
 ];
 
-const wards = [
-  "Ward 4 · Borrowdale West",
-  "Ward 7 · Hatcliffe",
-  "Ward 9 · Highfield",
-  "Ward 12 · Mabvuku",
-  "Ward 18 · Kuwadzana",
-  "Ward 21 · Epworth",
-];
 
 const speciesChips = ["Cattle", "Goat", "Sheep", "Donkey", "Pig"];
 
@@ -68,6 +60,20 @@ function polygonArea(points: Point[]) {
 }
 
 export default function NewGeofencePage() {
+  // Wards come from the database. A picker that offers wards which are not
+  // registered produces records that cannot be linked to anything.
+  const [wardOptions, setWardOptions] = useState<{ value: string; label: string }[]>([]);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/wards")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { name: string }[]) => {
+        if (live) setWardOptions(rows.map((w) => ({ value: w.name, label: w.name })));
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+
   const [stepIndex, setStepIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -159,7 +165,7 @@ export default function NewGeofencePage() {
             </FormField>
             <FormField label="Municipal ward" required>
               <Select
-                options={wards.map((w) => ({ value: w, label: w }))}
+                options={wardOptions}
                 value={ward}
                 onChange={setWard}
                 placeholder="Select ward…"

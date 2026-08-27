@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { WizardShell, type WizardStep } from "@/components/wizard/wizard";
 import { SuccessScreen } from "@/components/wizard/success";
 import { PhotoUpload, type UploadedPhoto } from "@/components/wizard/photo-upload";
@@ -34,14 +34,6 @@ const genderOptions: RadioCardOption[] = [
   { value: "Other",  label: "Prefer not to say", icon: <I.Users size={18} /> },
 ];
 
-const wardOptions = [
-  { value: "Ward 4 · Borrowdale West", label: "Ward 4 · Borrowdale West" },
-  { value: "Ward 7 · Hatcliffe",       label: "Ward 7 · Hatcliffe" },
-  { value: "Ward 9 · Highfield",       label: "Ward 9 · Highfield" },
-  { value: "Ward 12 · Mabvuku",        label: "Ward 12 · Mabvuku" },
-  { value: "Ward 18 · Kuwadzana",      label: "Ward 18 · Kuwadzana" },
-  { value: "Ward 21 · Epworth",        label: "Ward 21 · Epworth" },
-];
 
 const speciesChips = ["Cattle", "Goat", "Sheep", "Donkey", "Pig", "Poultry"];
 
@@ -65,6 +57,20 @@ const validZimPhone = (v: string) =>
   /^(\+263|0)\s?(7\d|8\d)\s?\d{3}\s?\d{4}$/.test(v.trim());
 
 export default function RegisterOwnerPage() {
+  // Wards come from the database. A picker that offers wards which are not
+  // registered produces records that cannot be linked to anything.
+  const [wardOptions, setWardOptions] = useState<{ value: string; label: string }[]>([]);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/wards")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { name: string }[]) => {
+        if (live) setWardOptions(rows.map((w) => ({ value: w.name, label: w.name })));
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+
   const [stepIndex, setStepIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);

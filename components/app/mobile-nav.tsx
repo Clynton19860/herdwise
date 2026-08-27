@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import type { Operator } from "@/lib/db";
+import { operatorLabel } from "@/components/app/operator";
 import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
@@ -21,7 +23,7 @@ type Ctx = {
 
 const MobileNavCtx = createContext<Ctx | null>(null);
 
-export function MobileNavProvider({ children }: { children: ReactNode }) {
+export function MobileNavProvider({ children, operator }: { children: ReactNode; operator?: Operator | null }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -46,7 +48,7 @@ export function MobileNavProvider({ children }: { children: ReactNode }) {
   return (
     <MobileNavCtx.Provider value={{ open, setOpen }}>
       {children}
-      <MobileDrawer />
+      <MobileDrawer operator={operator} />
     </MobileNavCtx.Provider>
   );
 }
@@ -99,7 +101,8 @@ const secondary: NavItem[] = [
   { href: "/settings", label: "Settings", icon: <I.Settings size={18} /> },
 ];
 
-function MobileDrawer() {
+function MobileDrawer({ operator }: { operator?: Operator | null }) {
+  const who = operatorLabel(operator);
   const { open, setOpen } = useMobileNav();
   const pathname = usePathname() || "";
   const router = useRouter();
@@ -235,12 +238,12 @@ function MobileDrawer() {
           {/* User card */}
           <div className="mt-3 glass-thin rounded-2xl p-3 flex items-center gap-3">
             <div className="relative h-10 w-10 rounded-2xl bg-[linear-gradient(135deg,#00f5a0,#5be7ff)] text-emerald-950 font-semibold flex items-center justify-center">
-              TM
+              {who.initials}
               <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-[#0a1612]" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium leading-tight truncate">Insp. Tatenda M.</div>
-              <div className="text-xs text-white/50 leading-tight truncate">Ward 7 · Field Officer</div>
+              <div className="text-sm font-medium leading-tight truncate">{who.name}</div>
+              <div className="text-xs text-white/50 leading-tight truncate">{who.sub}</div>
             </div>
             <button
               onClick={signOut}

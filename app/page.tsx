@@ -13,7 +13,7 @@ const navItems = [
   { href: "#platform", label: "Platform" },
   { href: "#how", label: "How it works" },
   { href: "#ecosystem", label: "Ecosystem" },
-  { href: "#voices", label: "Voices" },
+  { href: "#findings", label: "Findings" },
   { href: "#pilot", label: "Pilot" },
 ];
 
@@ -123,34 +123,47 @@ const howItWorks = [
   },
 ];
 
-const voices = [
+/**
+ * Findings from the pilot, not testimonials.
+ *
+ * This section previously carried invented quotes attributed to named people at
+ * the City of Harare. Fabricated endorsements from a real institution are not a
+ * placeholder — a reader has no way to tell them from real ones. These are
+ * things the hardware actually did, each traceable to a test or a capture.
+ */
+const findings = [
   {
-    quote:
-      "We finally know — to the minute — where the herd is. The team in Hatcliffe brought back four strays before traffic ever saw them.",
-    name: "Insp. T. Moyo",
-    role: "Municipal enforcement · Hatcliffe",
+    text: "A command leaves the platform, reaches the tag over the mobile network and comes back acknowledged in about three seconds.",
+    source: "Live HCS048 tag",
+    detail: "GSENSOR round-trip, measured end to end",
   },
   {
-    quote:
-      "The disease anomaly model flagged a fever twelve hours before the ward clinic would have. That probably saved a whole bloodline.",
-    name: "Dr. R. Chivasa",
-    role: "Veterinary services · City of Harare",
+    text: "Running the hardware corrected the vendor's protocol document in three places: REBOOT does reply, heading 998 means no bearing, and SYNC carries three undocumented fields.",
+    source: "Protocol test suite",
+    detail: "31 tests over real captured frames",
   },
   {
-    quote:
-      "My cattle wander a lot less now — and when they do, my phone pings me before they cross the fence. It pays for itself.",
-    name: "Tendai Mhofu",
-    role: "Livestock owner · Ward 7",
+    text: "WiFi positioning measured 72.5 m off on a tag that never moved, so containment decisions are gated to GPS fixes only.",
+    source: "Containment engine",
+    detail: "31 SQL assertions, including 20 crossings that correctly raised nothing",
   },
 ];
 
+/**
+ * What is actually deployed.
+ *
+ * This list previously advertised MQTT, Apple Find My, React Native, Expo, a
+ * PWA, a CDN, MFA and end-to-end encryption — none of which exist in this
+ * build. A stack list is the first thing a technical reader checks, so every
+ * line here names something that is really running.
+ */
 const stack = [
-  { label: "Frontend", value: "Next.js 16 · React 19 · Tailwind 4 · PWA" },
-  { label: "Backend", value: "Supabase · PostgreSQL · PostGIS · Realtime" },
-  { label: "IoT", value: "MQTT · Apple Find My · Edge telemetry" },
-  { label: "Mobile", value: "React Native · Expo · Offline sync" },
-  { label: "Infra", value: "AWS / Azure · CDN · Object storage" },
-  { label: "Security", value: "RLS · MFA · End-to-end encryption" },
+  { label: "Frontend", value: "Next.js 16 · React 19 · Tailwind 4" },
+  { label: "Database", value: "Supabase · PostgreSQL · PostGIS · Realtime" },
+  { label: "Tags", value: "HCS048 GPS ear tag · raw TCP · IMEI identity" },
+  { label: "Gateway", value: "Node.js on Azure · systemd · zero-dependency codec" },
+  { label: "Mapping", value: "MapLibre GL · satellite imagery · terrain DEM" },
+  { label: "Security", value: "Pinned-CA TLS · RLS written, awaiting auth" },
 ];
 
 export const dynamic = "force-dynamic";
@@ -526,28 +539,28 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ========== Voices / Testimonials ========== */}
-      <section id="voices" className="relative px-4 sm:px-6 py-16 sm:py-24">
+      {/* ========== Pilot findings ========== */}
+      <section id="findings" className="relative px-4 sm:px-6 py-16 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <Reveal className="max-w-3xl space-y-4 mb-10 sm:mb-12">
-            <Badge tone="amber">Voices from the pilot</Badge>
+            <Badge tone="amber">From the pilot</Badge>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-balance">
-              Officers, vets and farmers — already faster, already safer.
+              What running the hardware actually proved.
             </h2>
           </Reveal>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {voices.map((v, i) => (
-              <Reveal key={v.name} delay={i * 90}>
+            {findings.map((v, i) => (
+              <Reveal key={v.source} delay={i * 90}>
                 <GlassCard className="p-6 sm:p-7 h-full relative overflow-hidden">
                   <span
                     aria-hidden
-                    className="absolute top-4 right-5 text-7xl leading-none text-white/[0.06] font-serif"
+                    className="absolute top-4 right-5 text-7xl leading-none text-white/[0.06] font-semibold tabular-nums"
                   >
-                    &ldquo;
+                    {i + 1}
                   </span>
                   <p className="text-white/85 text-base sm:text-lg leading-relaxed relative">
-                    &ldquo;{v.quote}&rdquo;
+                    {v.text}
                   </p>
                   <div className="mt-6 flex items-center gap-3">
                     <div
@@ -561,17 +574,12 @@ export default async function LandingPage() {
                               : "linear-gradient(135deg,#ffd57a,#ff9b3a)",
                       }}
                     >
-                      {v.name
-                        .replace(/^[A-Z][a-z]+\.?\s/, "")
-                        .split(" ")
-                        .map((n) => n[0])
-                        .slice(0, 2)
-                        .join("")}
+                      <I.Check size={18} />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-medium">{v.name}</div>
+                      <div className="text-sm font-medium">{v.source}</div>
                       <div className="text-xs text-white/55 truncate">
-                        {v.role}
+                        {v.detail}
                       </div>
                     </div>
                   </div>

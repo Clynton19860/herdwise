@@ -285,6 +285,27 @@
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
+/**
+ * Opaque reading surface.
+ *
+ * The glass utilities are translucent and lean on `backdrop-filter` to stay
+ * legible. That is fine for chrome you glance at, but it fails for a panel you
+ * read: over the map's WebGL canvas the blur is unreliable, and where it is
+ * dropped entirely the surface is simply see-through, leaving text sitting
+ * directly on satellite imagery. Anything holding a body of text gets a real
+ * background instead of a filter that might not run.
+ */
+@utility glass-solid {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02)),
+    rgb(9, 20, 16);
+  border: 1px solid var(--glass-edge);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    inset 0 -1px 0 rgba(0,0,0,0.20),
+    0 24px 70px rgba(0,0,0,0.55);
+}
+
 /* Heavy glass — used for nav, modals */
 @utility glass-heavy {
   background:

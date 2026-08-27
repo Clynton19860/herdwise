@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import type { Operator } from "@/lib/db";
+import { operatorLabel } from "@/components/app/operator";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { Logo } from "@/components/ui/logo";
@@ -32,7 +34,7 @@ const secondary: NavItem[] = [
 
 const STORAGE_KEY = "herdwise.sidebar.collapsed";
 
-export function Sidebar() {
+export function Sidebar({ operator }: { operator?: Operator | null }) {
   const pathname = usePathname() || "";
   const router = useRouter();
   const [collapsed, setCollapsed] = useState<boolean>(false);
@@ -144,7 +146,7 @@ export function Sidebar() {
         </nav>
 
         {/* Footer user card */}
-        <UserCard collapsed={collapsed} onSignOut={handleSignOut} />
+        <UserCard collapsed={collapsed} onSignOut={handleSignOut} operator={operator} />
       </div>
     </aside>
   );
@@ -265,10 +267,13 @@ function Tooltip({ label, badge }: { label: string; badge?: string }) {
 function UserCard({
   collapsed,
   onSignOut,
+  operator,
 }: {
   collapsed: boolean;
   onSignOut: () => void;
+  operator?: Operator | null;
 }) {
+  const who = operatorLabel(operator);
   if (collapsed) {
     return (
       <div className="mt-4 grid place-items-center group relative">
@@ -277,22 +282,22 @@ function UserCard({
           onClick={onSignOut}
           aria-label="Signed in — click to sign out"
         >
-          TM
+          {who.initials}
           <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-[#0a1612] shadow-[0_0_8px_currentColor]" />
         </button>
-        <Tooltip label="Insp. Tatenda M. — sign out" />
+        <Tooltip label={`${who.name} — sign out`} />
       </div>
     );
   }
   return (
     <div className="mt-4 glass-thin rounded-2xl p-3 flex items-center gap-3 transition-colors hover:bg-white/4">
       <div className="relative h-10 w-10 rounded-2xl bg-[linear-gradient(135deg,#00f5a0,#5be7ff)] text-emerald-950 font-semibold flex items-center justify-center shadow-[0_8px_24px_-8px_rgba(0,245,160,0.6)]">
-        TM
+        {who.initials}
         <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-[#0a1612] shadow-[0_0_8px_currentColor]" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium leading-tight truncate">Insp. Tatenda M.</div>
-        <div className="text-xs text-white/50 leading-tight truncate">Ward 7 · Field Officer</div>
+        <div className="text-sm font-medium leading-tight truncate">{who.name}</div>
+        <div className="text-xs text-white/50 leading-tight truncate">{who.sub}</div>
       </div>
       <button
         onClick={onSignOut}

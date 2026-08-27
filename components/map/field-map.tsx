@@ -30,6 +30,40 @@ const STATUS_COLOUR: Record<string, string> = {
 const BREACH_COLOUR = "#ff3b3b";
 
 /**
+ * The map opens where the herd actually is.
+ *
+ * It used to open on a fixed regional centre and rely on the fit effect to fly
+ * to the data afterwards. When a pilot's animals sit a thousand kilometres from
+ * that centre, the first thing an operator sees is empty countryside with no pin
+ * in it — and if the fit is ever skipped or delayed, that is the whole
+ * impression. Deriving the opening view from the data removes the dependency
+ * rather than tuning it.
+ *
+ * The regional centre survives only as the last resort for an empty database,
+ * which is also why no real coordinate is committed to this repository.
+ */
+const REGION_FALLBACK: [number, number] = [31.05, -17.83]; // Harare
+
+function openingView(animals: MapAnimal[], parcels: MapParcel[]) {
+  for (const a of animals) {
+    if (a.lat != null && a.lng != null) return { center: [a.lng, a.lat] as [number, number], zoom: 17 };
+  }
+  for (const p of parcels) {
+    const ring = (p.geojson.coordinates[0] ?? []) as number[][];
+    if (ring.length) {
+      return {
+        center: [
+          ring.reduce((s, c) => s + c[0], 0) / ring.length,
+          ring.reduce((s, c) => s + c[1], 0) / ring.length,
+        ] as [number, number],
+        zoom: 16,
+      };
+    }
+  }
+  return { center: REGION_FALLBACK, zoom: 12 };
+}
+
+/**
  * A raster style rather than a vector one: raster tiles need no API key, no
  * account and no vendor lock, and the tiles are cacheable for the offline
  * requirement. Swap the source for a paid provider later without touching
@@ -118,14 +152,16 @@ export function FieldMap({
 
   /* ------------------------------------------------ map creation */
 
+  // Computed once, from the server-rendered data, before the map exists.
+  const opening = useRef(openingView(initialAnimals, parcels)).current;
+
   useEffect(() => {
     if (!holder.current || map.current) return;
     const m = new maplibregl.Map({
       container: holder.current,
       style: baseStyle("2d"),
-      // Harare, the pilot area. Never a private address.
-      center: focus ?? [31.05, -17.83],
-      zoom: 15,
+      center: focus ?? opening.center,
+      zoom: focus ? 17 : opening.zoom,
       attributionControl: { compact: true },
     });
     m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");

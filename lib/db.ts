@@ -52,6 +52,20 @@ export function isDatabaseConfigured() {
   return Boolean(process.env.DATABASE_URL);
 }
 
+/**
+ * Postgres will not compare a `uuid` column to a text parameter — it raises
+ * "operator does not exist: text = uuid". Casting the column (`id::text = $1`)
+ * works but discards the primary-key index. Instead, pass the value as a uuid
+ * when it is one and null when it is not, so lookups that accept either an id
+ * or a human reference stay indexed.
+ */
+function asUuid(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : null;
+}
+
 async function query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
   const { rows } = await pool().query(sql, params);
   return rows as T[];
@@ -112,7 +126,7 @@ export async function getOwners(): Promise<Owner[]> {
 }
 
 export async function getOwner(id: string): Promise<Owner | null> {
-  const rows = await query<OwnerRow>(`${OWNER_SQL} where o.id = $1`, [id]);
+  const rows = await query<OwnerRow>(`${OWNER_SQL} where o.id = $1::uuid`, [asUuid(id)]);
   return rows[0] ? toOwner(rows[0]) : null;
 }
 
@@ -201,12 +215,15 @@ export async function getAnimals(): Promise<Animal[]> {
 }
 
 export async function getAnimal(id: string): Promise<Animal | null> {
-  const rows = await query<AnimalRow>(`${ANIMAL_SQL} where a.id = $1 or a.tag = $1`, [id]);
+  // Accepts either the database id or the printed ear-tag number.
+  const rows = await query<AnimalRow>(
+    `${ANIMAL_SQL} where a.id = $1::uuid or a.tag = $2`, [asUuid(id), id]);
   return rows[0] ? toAnimal(rows[0]) : null;
 }
 
 export async function getAnimalsByOwner(ownerId: string): Promise<Animal[]> {
-  return (await query<AnimalRow>(`${ANIMAL_SQL} where a.owner_id = $1 order by a.tag`, [ownerId])).map(toAnimal);
+  return (await query<AnimalRow>(
+    `${ANIMAL_SQL} where a.owner_id = $1::uuid order by a.tag`, [asUuid(ownerId)])).map(toAnimal);
 }
 
 /* ---------------------------------------------------------------- zones */
@@ -246,7 +263,8 @@ export async function getGeofences(): Promise<Geofence[]> {
 }
 
 export async function getGeofence(id: string): Promise<Geofence | null> {
-  const rows = await query<ZoneRow>(`${ZONE_SQL} where g.id = $1`, [id]);
+  const rows = await query<ZoneRow>(
+    `${ZONE_SQL} where g.id = $1::uuid or g.name = $2`, [asUuid(id), id]);
   return rows[0] ? toGeofence(rows[0]) : null;
 }
 
@@ -429,7 +447,7 @@ export async function getHealthRecords(animalId: string) {
     id: string; type: string; occurred_on: string; next_due_on: string | null;
     description: string; veterinarian: string | null;
   }>(`select id, type, occurred_on, next_due_on, description, veterinarian
-        from health_records where animal_id = $1 order by occurred_on desc`, [animalId]);
+        from health_records where animal_id = $1::uuid order by occurred_on desc`, [asUuid(animalId)]);
 }
 
 /** Open containment breaches, for the tracking and dashboard alert rails. */
@@ -486,11 +504,11 @@ export async function getAnimalTrack(animalId: string, hours = 24) {
             st_y(geom::geometry) as lat, st_x(geom::geometry) as lng,
             fix::text as fix, speed_kph
        from fixes
-      where animal_id = $1
+      where animal_id = $1::uuid
         and recorded_at > now() - make_interval(hours => $2)
         and fix = 'gps'
       order by recorded_at`,
-    [animalId, hours]);
+    [asUuid(animalId), hours]);
 }
 
 /**
@@ -569,4 +587,55 @@ export async function getMovementStats(opts: { ownerId?: string; animalId?: stri
     medianSpeedKph: row?.median_speed != null ? Number(row.median_speed) : null,
     peakHour: row?.peak_hour ?? null,
   };
+}
+
+
+/* ------------------------------------------------------------------ shell */
+
+export type Operator = { name: string; role: string; initials: string; ward: string | null };
+
+/**
+ * Who the shell shows as signed in, and the real values the assistant offers
+ * as opening suggestions.
+ *
+ * Both used to be hardcoded, and both named things that exist nowhere in the
+ * database — an officer with no staff row, a ward and an ear tag that were
+ * never registered. That is worse than a placeholder: it reads as a real
+ * account and real records, so the first suggestion anyone clicks returns
+ * nothing. Until authentication exists the shell shows a genuine staff row, and
+ * every suggestion names data that is actually there.
+ */
+export async function getOperator(): Promise<Operator | null> {
+  const rows = await query<{ full_name: string; role: string; ward: string | null }>(
+    `select s.full_name, s.role::text as role, (select name from wards order by name limit 1) as ward
+       from staff s
+      order by case s.role::text when 'officer' then 0 when 'vet' then 1 else 2 end,
+               s.full_name
+      limit 1`);
+  const r = rows[0];
+  if (!r) return null;
+  const initials = r.full_name
+    .replace(/^(Insp\.|Sgt\.|Dr\.|Mr\.|Mrs\.|Ms\.)\s*/i, "")
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return { name: r.full_name, role: r.role, initials, ward: r.ward };
+}
+
+export async function getAssistantContext(): Promise<{ tag: string | null; ward: string | null }> {
+  const tag = await query<{ tag: string }>(
+    `select a.tag from animals a
+       join devices d on d.animal_id = a.id
+      where d.last_position is not null
+      order by d.last_fix_at desc nulls last
+      limit 1`);
+  const ward = await query<{ name: string }>(`select name from wards order by name limit 1`);
+  return { tag: tag[0]?.tag ?? null, ward: ward[0]?.name ?? null };
+}
+
+/** Registered wards, for pickers. Ordered as an operator would expect to read them. */
+export async function getWards(): Promise<{ id: string; name: string }[]> {
+  return query<{ id: string; name: string }>(`select id, name from wards order by name`);
 }
