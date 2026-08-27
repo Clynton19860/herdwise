@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { I } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
-import { geofences } from "@/lib/data";
+import type { Geofence } from "@/lib/types";
 
 type Point = [number, number];
 
@@ -36,11 +36,15 @@ export function PolygonDrawer({
   zoneType,
   points,
   onChange,
+  /** Existing zones drawn faintly for context. */
+  existingZones = [],
 }: {
   zoneType: string;
   points: Point[];
   onChange: (pts: Point[]) => void;
+  existingZones?: Geofence[];
 }) {
+  const geofences = existingZones;
   const ref = useRef<HTMLDivElement | null>(null);
   const [hover, setHover] = useState<Point | null>(null);
   const c = zoneColor[zoneType] ?? zoneColor.Grazing;

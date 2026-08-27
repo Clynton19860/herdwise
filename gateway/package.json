@@ -1,0 +1,22 @@
+{
+  "name": "herdwise-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "HCS048 telemetry gateway — TCP listener, protocol codec, device simulator.",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "gateway": "node src/gateway.js",
+    "simulator": "node src/simulator.js",
+    "usb-watch": "node tools/usb-watch.js",
+    "db:reset": "dropdb --if-exists herdwise_dev; createdb herdwise_dev; for f in ../supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -q -d herdwise_dev -f $f || exit 1; done; psql -q -d herdwise_dev -f ../supabase/seed.sql",
+    "db:test": "psql -v ON_ERROR_STOP=1 -d herdwise_dev -f ../supabase/tests/containment_test.sql",
+    "server": "node src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
+  }
+}

@@ -1,0 +1,41 @@
+-- The one physical HCS048 we actually hold.
+--
+-- Kept separate from seed.sql because that file is regenerated from the
+-- prototype dataset and would overwrite this. Apply after the seed.
+--
+-- IMEI <YOUR_DEVICE_IMEI> — Luhn-valid, TAC 86125111.
+
+begin;
+
+insert into owners (id, full_name, national_id, phone, ward_id)
+values ('00000000-0000-4000-8000-0000000000ff',
+        'Bench Test', 'TEST-BENCH-001', '+27 00 000 0000',
+        (select id from wards order by id limit 1))
+on conflict (national_id) do nothing;
+
+-- Home allocation: a realistic ~36 ha paddock, not one of the prototype's
+-- decorative polygons stretched across the whole city.
+insert into land_parcels (id, reference, name, tenure, geom,
+                          tolerance_m, breach_fixes, breach_dwell_s, clear_fixes)
+-- Replace with the corners of your own test paddock (lng lat, closed ring).
+values ('00000000-0000-4000-8000-1000000000ff', 'HRE-P-BENCH', 'Bench Test Paddock', 'communal',
+        st_geogfromtext('POLYGON((<LNG_W> <LAT_S>, <LNG_E> <LAT_S>,
+                                  <LNG_E> <LAT_N>, <LNG_W> <LAT_N>,
+                                  <LNG_W> <LAT_S>))'),
+        25, 2, 60, 2)
+on conflict (reference) do nothing;
+
+insert into animals (id, tag, name, species, sex, status, owner_id, home_parcel_id)
+values ('00000000-0000-4000-8000-2000000000ff', 'HRE-TEST-00001', 'Bench Tag',
+        'cattle', 'female', 'healthy',
+        '00000000-0000-4000-8000-0000000000ff',
+        '00000000-0000-4000-8000-1000000000ff')
+on conflict (tag) do nothing;
+
+insert into devices (imei, type, animal_id, model)
+values ('<YOUR_DEVICE_IMEI>', 'hcs048', '00000000-0000-4000-8000-2000000000ff', 'HCS048')
+on conflict (imei) do update
+   set animal_id = excluded.animal_id,
+       model     = excluded.model;
+
+commit;

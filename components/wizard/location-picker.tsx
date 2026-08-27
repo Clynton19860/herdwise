@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { geofences } from "@/lib/data";
+import type { Geofence } from "@/lib/types";
 
 type Point = { x: number; y: number };
 
@@ -10,12 +10,16 @@ export function LocationPicker({
   onChange,
   height = 360,
   accent = "#ff8a8a",
+  /** Existing zones drawn faintly for context. */
+  zones = [],
 }: {
   value: Point | null;
   onChange: (p: Point) => void;
   height?: number;
   accent?: string;
+  zones?: Geofence[];
 }) {
+  const geofences = zones;
   const ref = useRef<HTMLDivElement | null>(null);
 
   const click = (e: React.MouseEvent<HTMLDivElement>) => {

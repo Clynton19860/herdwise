@@ -4,9 +4,10 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
-import { animals, owners } from "@/lib/data";
+import { getAnimals, getOwners } from "@/lib/db";
 
-export default function OwnersPage() {
+export default async function OwnersPage() {
+  const [animals, owners] = await Promise.all([getAnimals(), getOwners()]);
   const totalHerd = owners.reduce((s, o) => s + o.herdSize, 0);
 
   return (

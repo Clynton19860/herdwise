@@ -4,24 +4,26 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button, LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
-import { animals, owners, findOwner } from "@/lib/data";
+import { getAnimals, getOwners } from "@/lib/db";
 
-const speciesCounts = animals.reduce<Record<string, number>>((acc, a) => {
-  acc[a.species] = (acc[a.species] ?? 0) + 1;
-  return acc;
-}, {});
+export default async function LivestockPage() {
+  const [animals, owners] = await Promise.all([getAnimals(), getOwners()]);
+  const findOwner = (id: string) => owners.find((o) => o.id === id);
 
-const filters = [
-  { label: "All",           count: animals.length, active: true },
-  { label: "Cattle",        count: speciesCounts.Cattle ?? 0 },
-  { label: "Goats",         count: speciesCounts.Goat ?? 0 },
-  { label: "Sheep",         count: speciesCounts.Sheep ?? 0 },
-  { label: "Donkey",        count: speciesCounts.Donkey ?? 0 },
-  { label: "Alerts",        count: animals.filter((a) => a.status === "Alert").length },
-  { label: "Quarantined",   count: animals.filter((a) => a.status === "Quarantined").length },
-];
+  const speciesCounts = animals.reduce<Record<string, number>>((acc, a) => {
+    acc[a.species] = (acc[a.species] ?? 0) + 1;
+    return acc;
+  }, {});
 
-export default function LivestockPage() {
+  const filters = [
+    { label: "All",         count: animals.length, active: true },
+    { label: "Cattle",      count: speciesCounts.Cattle ?? 0 },
+    { label: "Goats",       count: speciesCounts.Goat ?? 0 },
+    { label: "Sheep",       count: speciesCounts.Sheep ?? 0 },
+    { label: "Donkey",      count: speciesCounts.Donkey ?? 0 },
+    { label: "Alerts",      count: animals.filter((a) => a.status === "Alert").length },
+    { label: "Quarantined", count: animals.filter((a) => a.status === "Quarantined").length },
+  ];
   return (
     <>
       <Topbar

@@ -1,0 +1,45 @@
+[Unit]
+Description=Herdwise telemetry gateway (HCS048 TCP listener)
+Documentation=file:///opt/herdwise/gateway/README.md
+After=network-online.target
+Wants=network-online.target
+# Never give up restarting: while this is down, tags have nowhere to report.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=herdwise
+Group=herdwise
+WorkingDirectory=/opt/herdwise/gateway
+EnvironmentFile=/etc/herdwise/gateway.env
+ExecStart=/usr/bin/node src/server.js
+
+# Tags have nowhere to report while this is down and those positions are gone
+# for good, so restart aggressively rather than waiting for a human.
+Restart=always
+RestartSec=2
+
+# Thousands of idle sockets, one per tag.
+LimitNOFILE=65536
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=herdwise-gateway
+
+# Hardening — the gateway parses untrusted bytes from the public internet.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/herdwise
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+# NOT MemoryDenyWriteExecute: V8 needs write+execute pages for its JIT and
+# aborts with a fatal ENOMEM at startup if they are denied.
+
+[Install]
+WantedBy=multi-user.target

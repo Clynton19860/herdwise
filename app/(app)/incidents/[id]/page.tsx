@@ -6,12 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
 import { SeverityBadge, IncidentStatusBadge, StatusBadge } from "@/components/app/indicators";
-import { findAnimal, findOwner, geofences, incidents } from "@/lib/data";
+import { getAnimal, getGeofences, getIncident, getOwner } from "@/lib/db";
 import { generateAiSummary } from "@/lib/ai-server";
-
-export function generateStaticParams() {
-  return incidents.map((i) => ({ id: i.id }));
-}
 
 type Params = Promise<{ id: string }>;
 
@@ -20,11 +16,13 @@ const severityHex = (s: string) =>
 
 export default async function IncidentDetailPage({ params }: { params: Params }) {
   const { id } = await params;
-  const incident = incidents.find((i) => i.id === id);
+  const [incident, geofences] = await Promise.all([getIncident(id), getGeofences()]);
   if (!incident) notFound();
 
-  const animal = incident.animalId ? findAnimal(incident.animalId) : null;
-  const owner = incident.ownerId ? findOwner(incident.ownerId) : null;
+  const [animal, owner] = await Promise.all([
+    incident.animalId ? getAnimal(incident.animalId) : null,
+    incident.ownerId ? getOwner(incident.ownerId) : null,
+  ]);
   const reported = new Date(incident.reportedAt);
   const accent = severityHex(incident.severity);
   const officerName = incident.officer;
@@ -321,7 +319,7 @@ export default async function IncidentDetailPage({ params }: { params: Params })
                   className="glass-thin rounded-2xl p-3 flex items-center gap-3 hover:bg-white/6 transition-colors"
                 >
                   <span className="h-9 w-9 rounded-xl bg-[linear-gradient(135deg,#ffd57a,#ff9b3a)] text-emerald-950 font-semibold grid place-items-center text-xs">
-                    {owner.fullName.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                    {owner.fullName.split(" ").map((n: string) => n[0]).slice(0, 2).join("")}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate">{owner.fullName}</div>

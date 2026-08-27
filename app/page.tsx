@@ -6,7 +6,7 @@ import { I } from "@/components/ui/icon";
 import { MiniMap } from "@/components/marketing/mini-map";
 import { AnimatedCounter } from "@/components/marketing/animated-counter";
 import { Reveal } from "@/components/marketing/reveal";
-import { platformStats } from "@/lib/data";
+import { getAnimals, getGeofences, getPlatformStats } from "@/lib/db";
 import Link from "next/link";
 
 const navItems = [
@@ -153,7 +153,12 @@ const stack = [
   { label: "Security", value: "RLS · MFA · End-to-end encryption" },
 ];
 
-export default function LandingPage() {
+export const dynamic = "force-dynamic";
+
+export default async function LandingPage() {
+  const [platformStats, animals, zones] = await Promise.all([
+    getPlatformStats(), getAnimals(), getGeofences(),
+  ]);
   return (
     <div className="relative min-h-screen">
       {/* ========== Top nav ========== */}
@@ -256,7 +261,7 @@ export default function LandingPage() {
           {/* Hero map card */}
           <Reveal delay={120} className="lg:col-span-5">
             <GlassCard className="p-3 ring-glow">
-              <MiniMap className="h-[280px] sm:h-[360px] md:h-[460px]" />
+              <MiniMap animals={animals} zones={zones} className="h-[280px] sm:h-[360px] md:h-[460px]" />
 
               <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3 px-1">
                 <HeroStat

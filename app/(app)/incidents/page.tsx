@@ -8,16 +8,21 @@ import {
   SeverityBadge,
   IncidentStatusBadge,
 } from "@/components/app/indicators";
-import { incidents, findAnimal, findOwner } from "@/lib/data";
+import { getAnimals, getIncidents, getOwners } from "@/lib/db";
 
-const summary = {
-  open: incidents.filter((i) => i.status === "Open").length,
-  inProgress: incidents.filter((i) => i.status === "In progress").length,
-  escalated: incidents.filter((i) => i.status === "Escalated").length,
-  resolved: incidents.filter((i) => i.status === "Resolved").length,
-};
+export default async function IncidentsPage() {
+  const [incidents, animals, owners] = await Promise.all([
+    getIncidents(), getAnimals(), getOwners(),
+  ]);
+  const findAnimal = (id: string) => animals.find((a) => a.id === id);
+  const findOwner = (id: string) => owners.find((o) => o.id === id);
 
-export default function IncidentsPage() {
+  const summary = {
+    open: incidents.filter((i) => i.status === "Open").length,
+    inProgress: incidents.filter((i) => i.status === "In progress").length,
+    escalated: incidents.filter((i) => i.status === "Escalated").length,
+    resolved: incidents.filter((i) => i.status === "Resolved").length,
+  };
   return (
     <>
       <Topbar

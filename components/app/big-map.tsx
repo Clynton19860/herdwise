@@ -1,5 +1,5 @@
-import { animals, geofences } from "@/lib/data";
 import { I } from "@/components/ui/icon";
+import type { Animal, Geofence } from "@/lib/types";
 
 const zoneColor: Record<string, string> = {
   Grazing: "rgba(0, 245, 160, 0.18)",
@@ -16,7 +16,15 @@ const zoneStroke: Record<string, string> = {
   Quarantine: "rgba(140, 124, 255, 0.65)",
 };
 
-export function BigMap({ className = "" }: { className?: string }) {
+export function BigMap({
+  animals,
+  zones: geofences,
+  className = "",
+}: {
+  animals: Animal[];
+  zones: Geofence[];
+  className?: string;
+}) {
   return (
     <div
       className={`map-canvas topo-lines relative overflow-hidden rounded-3xl border border-white/10 ${className}`}

@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Supabase CLI local state (project ref, pooler URL)
+supabase/.temp/
+
+# Gateway dependencies
+gateway/node_modules/
+
+# Database dumps — may contain real owner and position data
+backups/
+
+# Real device registration — an IMEI is a vendor-platform login name, and a
+# test paddock is usually a real address. Use real-device.sql.example.
+supabase/real-device.sql

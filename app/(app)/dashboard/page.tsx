@@ -9,21 +9,32 @@ import { Ring } from "@/components/charts/ring";
 import { Bars } from "@/components/charts/bars";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
 import {
-  animals,
-  geofences,
-  incidents,
-  owners,
-  platformStats,
-  recentActivity,
-  trendSeries,
-} from "@/lib/data";
+  getAnimals,
+  getComposition,
+  getGeofences,
+  getIncidents,
+  getOwners,
+  getPlatformStats,
+  getRecentActivity,
+  getTrendSeries,
+} from "@/lib/db";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const [animals, geofences, incidents, owners, platformStats, recentActivity, trendSeries, composition] =
+    await Promise.all([
+      getAnimals(), getGeofences(), getIncidents(), getOwners(),
+      getPlatformStats(), getRecentActivity(), getTrendSeries(), getComposition(),
+    ]);
   const alerts = animals.filter((a) => a.status === "Alert" || a.status === "Monitoring").length;
-  const grazing = geofences.filter((g) => g.type === "Grazing").length;
   const openIncidents = incidents.filter(
     (i) => i.status === "Open" || i.status === "In progress" || i.status === "Escalated"
   ).length;
+
+  const reportingPct = platformStats.registered
+    ? Math.round((platformStats.liveDevices / platformStats.registered) * 100)
+    : 0;
+  const speeds = animals.map((a) => a.location.speedKph).sort((a, b) => a - b);
+  const medianSpeed = speeds.length ? speeds[Math.floor(speeds.length / 2)] : 0;
 
   return (
     <>
@@ -37,7 +48,7 @@ export default function DashboardPage() {
         <MetricCard
           label="Registered livestock"
           value={platformStats.registered.toLocaleString()}
-          delta="+128 this week"
+          delta={`${trendSeries.registrations.reduce((x, y) => x + y, 0)} this week`}
           tone="veld"
           series={trendSeries.registrations}
           icon={<I.Cow size={18} />}
@@ -45,7 +56,7 @@ export default function DashboardPage() {
         <MetricCard
           label="Devices online"
           value={platformStats.liveDevices.toLocaleString()}
-          delta="88.8% of fleet"
+          delta={`${platformStats.registered ? Math.round((platformStats.liveDevices / platformStats.registered) * 100) : 0}% of fleet`}
           tone="cyan"
           color="#5be7ff"
           series={trendSeries.movement}
@@ -63,7 +74,7 @@ export default function DashboardPage() {
         <MetricCard
           label="Health anomalies"
           value={String(alerts)}
-          delta="AI model active"
+          delta={`${platformStats.openBreaches} open breaches`}
           tone="violet"
           color="#b3a7ff"
           series={trendSeries.healthAnomalies}
@@ -89,15 +100,24 @@ export default function DashboardPage() {
               </LinkButton>
             </div>
           </div>
-          <MiniMap className="h-[300px] sm:h-[360px] lg:h-[420px]" />
+          <MiniMap animals={animals} zones={geofences} className="h-[300px] sm:h-[360px] lg:h-[420px]" />
 
           {/* Legend / zone counts */}
           <div className="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">
-            <LegendChip color="#34c071" label="Grazing" value={`${grazing} zones`} />
-            <LegendChip color="#ffb547" label="Buffer" value="1 zone" />
-            <LegendChip color="#ff6b6b" label="Restricted" value="1 zone" />
-            <LegendChip color="#5be7ff" label="Watering" value="1 zone" />
-            <LegendChip color="#8c7cff" label="Quarantine" value="1 zone" />
+            {([
+              ["Grazing", "#34c071"], ["Buffer", "#ffb547"], ["Restricted", "#ff6b6b"],
+              ["Watering", "#5be7ff"], ["Quarantine", "#8c7cff"],
+            ] as const).map(([label, color]) => {
+              const count = geofences.filter((g) => g.type === label).length;
+              return (
+                <LegendChip
+                  key={label}
+                  color={color}
+                  label={label}
+                  value={count === 1 ? "1 zone" : `${count} zones`}
+                />
+              );
+            })}
           </div>
         </GlassCard>
 
@@ -112,12 +132,16 @@ export default function DashboardPage() {
               <Badge tone="aurora" dot>Nominal</Badge>
             </div>
             <div className="mt-5 flex items-center gap-6">
-              <Ring value={99.96} label="99.96%" sublabel="Uptime" />
+              <Ring
+                value={reportingPct}
+                label={`${reportingPct}%`}
+                sublabel="Reporting"
+              />
               <div className="space-y-3 flex-1">
-                <RowKpi label="Avg. ingest latency" value="3.2s" tone="text-emerald-300" />
-                <RowKpi label="Telemetry queue" value="0.4%" tone="text-cyan-300" />
-                <RowKpi label="Alerts dispatched" value="1,284" tone="text-amber-200" />
-                <RowKpi label="Failed deliveries" value="3" tone="text-rose-300" />
+                <RowKpi label="Devices online" value={String(platformStats.liveDevices)} tone="text-emerald-300" />
+                <RowKpi label="Not reporting" value={String(platformStats.offlineDevices)} tone={platformStats.offlineDevices ? "text-amber-200" : "text-white/60"} />
+                <RowKpi label="Battery under 30%" value={String(platformStats.lowBattery)} tone={platformStats.lowBattery ? "text-amber-200" : "text-white/60"} />
+                <RowKpi label="Open breaches" value={String(platformStats.openBreaches)} tone={platformStats.openBreaches ? "text-rose-300" : "text-white/60"} />
               </div>
             </div>
           </GlassCard>
@@ -148,7 +172,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-semibold tracking-tight">Movement volume</h3>
-              <p className="text-xs text-white/55 mt-0.5">7-day average kilometres travelled per animal</p>
+              <p className="text-xs text-white/55 mt-0.5">Position reports received per day</p>
             </div>
             <div className="flex items-center gap-2">
               <Badge tone="veld">Herd</Badge>
@@ -159,22 +183,22 @@ export default function DashboardPage() {
           <div className="mt-7">
             <Bars
               height={180}
-              data={[
-                { label: "Mon", value: 44, color: "#00f5a0" },
-                { label: "Tue", value: 52, color: "#00f5a0" },
-                { label: "Wed", value: 41, color: "#00f5a0" },
-                { label: "Thu", value: 58, color: "#5be7ff" },
-                { label: "Fri", value: 49, color: "#5be7ff" },
-                { label: "Sat", value: 62, color: "#5be7ff" },
-                { label: "Sun", value: 71, color: "#5be7ff" },
-              ]}
+              data={trendSeries.movement.map((value, i) => ({
+                label: new Date(trendSeries.days[i]).toLocaleDateString("en-ZW", { weekday: "short" }),
+                value,
+                color: i >= trendSeries.movement.length - 3 ? "#5be7ff" : "#00f5a0",
+              }))}
             />
           </div>
 
           <div className="mt-7 grid grid-cols-3 gap-3">
-            <MicroStat label="Active herds" value="62" hint="+4 vs last week" />
-            <MicroStat label="Median speed" value="1.6 km/h" hint="grazing pace" />
-            <MicroStat label="Distance / day" value="3.4 km" hint="per animal" />
+            <MicroStat label="Owners" value={String(owners.length)} hint="with registered stock" />
+            <MicroStat
+              label="Median speed"
+              value={`${medianSpeed.toFixed(1)} km/h`}
+              hint="latest fix per animal"
+            />
+            <MicroStat label="Zones" value={String(geofences.length)} hint="active geofences" />
           </div>
         </GlassCard>
 
@@ -183,11 +207,14 @@ export default function DashboardPage() {
           <p className="text-xs text-white/55 mt-0.5">Composition of active fleet</p>
 
           <div className="mt-7 space-y-4">
-            <SpeciesRow name="Cattle"  value={68} color="#00f5a0" />
-            <SpeciesRow name="Goat"    value={18} color="#5be7ff" />
-            <SpeciesRow name="Sheep"   value={9}  color="#ffb547" />
-            <SpeciesRow name="Donkey"  value={3}  color="#8c7cff" />
-            <SpeciesRow name="Pig"     value={2}  color="#ff8a8a" />
+            {composition.species.map((sp, i) => (
+              <SpeciesRow
+                key={sp.name}
+                name={sp.name}
+                value={sp.pct}
+                color={["#00f5a0", "#5be7ff", "#ffb547", "#8c7cff", "#ff8a8a"][i % 5]}
+              />
+            ))}
           </div>
         </GlassCard>
       </div>

@@ -468,3 +468,75 @@
   background: transparent;
   border: 0;
 }
+
+/* ---------- MapLibre: markers and popups ---------- */
+
+.hw-pin {
+  position: relative;
+  display: block;
+  height: 14px;
+  width: 14px;
+  cursor: pointer;
+}
+.hw-pin-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--pin, #00f5a0);
+  opacity: 0.5;
+  animation: pulse-ring 2.4s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+.hw-pin-dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--pin, #00f5a0);
+  box-shadow: 0 0 12px var(--pin, #00f5a0), inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+  /* Markers move to a new position on every live update; ease so it reads as
+     travel rather than teleportation. */
+  transition: background 0.3s ease;
+}
+.hw-pin-breach .hw-pin-ring { animation-duration: 1s; }
+
+.maplibregl-popup-content {
+  background: rgba(10, 22, 18, 0.92);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid var(--glass-edge);
+  border-radius: 16px;
+  padding: 12px 14px;
+  color: var(--color-ink);
+  box-shadow: var(--shadow-glass);
+}
+.maplibregl-popup-tip { border-top-color: rgba(10, 22, 18, 0.92) !important }
+.hw-popup-tag { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: #c8f4d8 }
+.hw-popup-name { font-size: 11px; color: rgba(243, 247, 243, 0.6); margin-bottom: 8px }
+.hw-popup dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  margin: 0;
+  font-size: 11px;
+}
+.hw-popup dt { color: rgba(243, 247, 243, 0.45); text-transform: uppercase; letter-spacing: 0.06em; font-size: 9px; align-self: center }
+.hw-popup dd { margin: 0; color: rgba(243, 247, 243, 0.9) }
+.hw-popup dd.bad { color: #ff8a8a; font-weight: 600 }
+
+.maplibregl-ctrl-group {
+  background: rgba(10, 22, 18, 0.72) !important;
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-edge) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+.maplibregl-ctrl-group button { background: transparent !important }
+.maplibregl-ctrl-group button + button { border-top: 1px solid rgba(255, 255, 255, 0.08) !important }
+.maplibregl-ctrl-group button span { filter: invert(1) opacity(0.8) }
+.maplibregl-ctrl-attrib { background: rgba(5, 11, 10, 0.6) !important; border-radius: 10px }
+.maplibregl-ctrl-attrib a { color: rgba(243, 247, 243, 0.5) !important }
+.maplibregl-ctrl-scale {
+  background: rgba(5, 11, 10, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: rgba(243, 247, 243, 0.75) !important;
+  border-radius: 4px;
+}

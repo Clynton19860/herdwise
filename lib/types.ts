@@ -33,7 +33,11 @@ export type Animal = {
     lastSyncMin: number;
   };
   location: {
-    /** simple x/y coordinates inside our stylized map canvas (0–100) */
+    /**
+     * Projected x/y inside the stylized map canvas (0–100). The stored value is
+     * real lat/lng in PostGIS; this is a presentation projection applied in
+     * lib/db.ts via lib/geo.ts.
+     */
     x: number;
     y: number;
     zone: string;
@@ -43,8 +47,13 @@ export type Animal = {
   health: {
     lastVaccination: string;
     nextVaccination: string;
-    heartRateBpm: number;
-    temperatureC: number;
+    /**
+     * Null on HCS048 hardware, which has GPS and an accelerometer but no
+     * heart-rate or temperature sensor. Populated only by Phase 2 smart
+     * collars — the UI shows a dash rather than inventing a reading.
+     */
+    heartRateBpm: number | null;
+    temperatureC: number | null;
   };
   registeredOn: string;
 };

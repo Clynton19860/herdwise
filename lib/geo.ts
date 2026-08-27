@@ -35,3 +35,26 @@ export function toLatLng(x: number, y: number): [number, number] {
 export function polygonToLatLng(points: [number, number][]) {
   return points.map(([x, y]) => toLatLng(x, y));
 }
+
+/**
+ * Inverse of {@link toLatLng}: project a real coordinate back into the stylized
+ * 0–100 canvas.
+ *
+ * The direction of travel matters. Positions are *stored* as lat/lng because
+ * that is what a collar reports and what PostGIS can reason about; the canvas is
+ * only a presentation space. Anything outside the Harare bounds clamps to the
+ * edge rather than drawing off-canvas.
+ */
+export function toCanvas(lat: number, lng: number): { x: number; y: number } {
+  const x = ((lng - HARARE_BOUNDS.west) / (HARARE_BOUNDS.east - HARARE_BOUNDS.west)) * 100;
+  const y = ((HARARE_BOUNDS.north - lat) / (HARARE_BOUNDS.north - HARARE_BOUNDS.south)) * 100;
+  const clamp = (v: number) => Math.min(100, Math.max(0, v));
+  return { x: clamp(x), y: clamp(y) };
+}
+
+export function polygonToCanvas(points: [number, number][]): [number, number][] {
+  return points.map(([lat, lng]) => {
+    const { x, y } = toCanvas(lat, lng);
+    return [Number(x.toFixed(2)), Number(y.toFixed(2))] as [number, number];
+  });
+}

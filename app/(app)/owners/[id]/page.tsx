@@ -9,17 +9,15 @@ import { ScopedMap } from "@/components/app/scoped-map";
 import { Ring } from "@/components/charts/ring";
 import { Sparkline } from "@/components/charts/sparkline";
 import { StatusBadge, BatteryBar, SeverityBadge, IncidentStatusBadge } from "@/components/app/indicators";
-import { animals, geofences, incidents, owners } from "@/lib/data";
-
-export function generateStaticParams() {
-  return owners.map((o) => ({ id: o.id }));
-}
+import { getAnimals, getGeofences, getIncidents, getOwner } from "@/lib/db";
 
 type Params = Promise<{ id: string }>;
 
 export default async function OwnerDetailPage({ params }: { params: Params }) {
   const { id } = await params;
-  const owner = owners.find((o) => o.id === id);
+  const [owner, animals, geofences, incidents] = await Promise.all([
+    getOwner(id), getAnimals(), getGeofences(), getIncidents(),
+  ]);
   if (!owner) notFound();
 
   const herd = animals.filter((a) => a.ownerId === owner.id);

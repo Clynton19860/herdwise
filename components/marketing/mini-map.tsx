@@ -1,4 +1,4 @@
-import { animals, geofences } from "@/lib/data";
+import type { Animal, Geofence } from "@/lib/types";
 
 const zoneColor: Record<string, string> = {
   Grazing: "rgba(0, 245, 160, 0.18)",
@@ -15,7 +15,15 @@ const zoneStroke: Record<string, string> = {
   Quarantine: "rgba(140, 124, 255, 0.55)",
 };
 
-export function MiniMap({ className = "" }: { className?: string }) {
+export function MiniMap({
+  animals,
+  zones: geofences,
+  className = "",
+}: {
+  animals: Animal[];
+  zones: Geofence[];
+  className?: string;
+}) {
   return (
     <div
       className={`map-canvas topo-lines relative overflow-hidden rounded-3xl border border-white/10 ${className}`}

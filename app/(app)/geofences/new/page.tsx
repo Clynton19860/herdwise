@@ -195,7 +195,7 @@ export default function NewGeofencePage() {
             <span className="text-xs text-white/45">·</span>
             <span className="text-xs text-white/55">{ward || "—"}</span>
           </div>
-          <PolygonDrawer
+          <PolygonDrawer existingZones={[]}
             zoneType={zoneType}
             points={polygon}
             onChange={setPolygon}

@@ -5,15 +5,11 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
-import { GeofenceHeroMap } from "@/components/app/geofence-hero-map";
+import { FieldMap } from "@/components/map/field-map";
 import { Ring } from "@/components/charts/ring";
 import { Sparkline } from "@/components/charts/sparkline";
 import { ZoneTypeBadge, StatusBadge, SeverityBadge, IncidentStatusBadge } from "@/components/app/indicators";
-import { animals, geofences, incidents } from "@/lib/data";
-
-export function generateStaticParams() {
-  return geofences.map((g) => ({ id: g.id }));
-}
+import { getAnimals, getGeofence, getIncidents, getMapAnimals, getMapParcels } from "@/lib/db";
 
 type Params = Promise<{ id: string }>;
 
@@ -54,7 +50,10 @@ function perimeterPercent(points: [number, number][]) {
 
 export default async function GeofenceDetailPage({ params }: { params: Params }) {
   const { id } = await params;
-  const zone = geofences.find((g) => g.id === id);
+  const [zone, animals, incidents, mapAnimals, mapParcels] = await Promise.all([
+    getGeofence(id), getAnimals(), getIncidents(),
+    getMapAnimals(), getMapParcels(),
+  ]);
   if (!zone) notFound();
 
   const insideAnimals = animals.filter((a) =>
@@ -102,10 +101,9 @@ export default async function GeofenceDetailPage({ params }: { params: Params })
             </div>
             <span className="text-xs text-white/45 font-mono">{zone.id.toUpperCase()}</span>
           </div>
-          <GeofenceHeroMap
-            animals={insideAnimals}
-            zones={geofences}
-            highlightZoneId={zone.id}
+          <FieldMap
+            animals={mapAnimals}
+            parcels={mapParcels}
             className="h-[300px] sm:h-[380px] lg:h-[440px]"
           />
         </GlassCard>

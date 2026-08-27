@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
 import { ZoneTypeBadge } from "@/components/app/indicators";
-import { geofences } from "@/lib/data";
+import { getGeofences } from "@/lib/db";
 
 const fillByType: Record<string, string> = {
   Grazing: "rgba(0, 245, 160, 0.22)",
@@ -22,7 +22,8 @@ const strokeByType: Record<string, string> = {
   Quarantine: "rgba(140, 124, 255, 0.7)",
 };
 
-export default function GeofencesPage() {
+export default async function GeofencesPage() {
+  const geofences = await getGeofences();
   const totalHa = geofences.reduce((s, g) => s + g.hectares, 0);
   const capacity = geofences.reduce((s, g) => s + g.capacity, 0);
   const occupancy = geofences.reduce((s, g) => s + g.occupancy, 0);

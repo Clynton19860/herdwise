@@ -6,16 +6,23 @@ import { I } from "@/components/ui/icon";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Ring } from "@/components/charts/ring";
 import { StatusBadge } from "@/components/app/indicators";
-import { animals } from "@/lib/data";
+import { getAnimals, getHealthOverview } from "@/lib/db";
 
-const vaccinationCoverage = 78;
-const anomalies = animals.filter((a) => a.status === "Alert" || a.status === "Quarantined");
-const dueSoon = animals
-  .slice()
-  .sort((a, b) => new Date(a.health.nextVaccination).getTime() - new Date(b.health.nextVaccination).getTime())
-  .slice(0, 6);
+export default async function HealthPage() {
+  const [animals, overview] = await Promise.all([getAnimals(), getHealthOverview()]);
 
-export default function HealthPage() {
+  // Derived from real vaccination records rather than the hardcoded 78 the
+  // prototype displayed.
+  const withSchedule = animals.filter((a) => a.health.nextVaccination);
+  const vaccinationCoverage = animals.length
+    ? Math.round(((animals.length - overview.overdue) / animals.length) * 100)
+    : 0;
+  const anomalies = animals.filter((a) => a.status === "Alert" || a.status === "Quarantined");
+  const dueSoon = withSchedule
+    .slice()
+    .sort((a, b) =>
+      new Date(a.health.nextVaccination).getTime() - new Date(b.health.nextVaccination).getTime())
+    .slice(0, 6);
   return (
     <>
       <Topbar
@@ -106,9 +113,17 @@ export default function HealthPage() {
                   <span className="font-mono text-xs">{a.tag}</span>
                   <StatusBadge status={a.status} />
                 </div>
+                {/* Ear tags report position and battery, not vitals. Show what
+                    the hardware actually provides. */}
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                  <Stat label="Temp" value={`${a.health.temperatureC.toFixed(1)}°C`} tone="text-amber-200" />
-                  <Stat label="Heart" value={`${a.health.heartRateBpm} bpm`} tone="text-rose-300" />
+                  <Stat label="Zone" value={a.location.zone} tone="text-cyan-200" />
+                  <Stat
+                    label="Last seen"
+                    value={a.device.lastSyncMin < 60
+                      ? `${a.device.lastSyncMin}m ago`
+                      : `${Math.round(a.device.lastSyncMin / 60)}h ago`}
+                    tone={a.device.lastSyncMin > 60 ? "text-amber-200" : "text-emerald-200"}
+                  />
                 </div>
               </li>
             ))}

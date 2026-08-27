@@ -7,24 +7,18 @@ import { I } from "@/components/ui/icon";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Ring } from "@/components/charts/ring";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
-import { animals, findOwner, incidents } from "@/lib/data";
-
-export function generateStaticParams() {
-  return animals.map((a) => ({ id: a.id }));
-}
+import { getAnimal, getIncidents, getOwner } from "@/lib/db";
 
 type Params = Promise<{ id: string }>;
 
 export default async function AnimalDetailPage({ params }: { params: Params }) {
   const { id } = await params;
-  const animal = animals.find((a) => a.id === id);
+  const animal = await getAnimal(id);
   if (!animal) notFound();
-  const owner = findOwner(animal.ownerId);
+  const [owner, incidents] = await Promise.all([
+    getOwner(animal.ownerId), getIncidents(),
+  ]);
   const animalIncidents = incidents.filter((i) => i.animalId === animal.id);
-
-  // Synthesised time series for the visuals
-  const heartSeries = [62, 64, 61, 66, 70, 68, animal.health.heartRateBpm];
-  const tempSeries = [38.4, 38.5, 38.6, 38.8, 39.0, 39.1, animal.health.temperatureC];
 
   return (
     <>
@@ -121,21 +115,26 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <TelemetryCard
-              title="Heart rate"
-              value={`${animal.health.heartRateBpm}`}
-              unit="bpm"
-              series={heartSeries}
-              color="#ff8a8a"
-              icon={<I.Heart size={16} />}
-            />
-            <TelemetryCard
-              title="Temperature"
-              value={`${animal.health.temperatureC.toFixed(1)}`}
-              unit="°C"
-              series={tempSeries}
-              color="#ffb547"
+              title="Movement"
+              value={animal.location.speedKph.toFixed(1)}
+              unit="km/h"
+              series={[0, 0, 0, 0, 0, 0, animal.location.speedKph]}
+              color="#5be7ff"
               icon={<I.Activity size={16} />}
             />
+            {/* The HCS048 carries GPS and an accelerometer — no heart-rate or
+                temperature sensor. Saying so beats showing an invented reading. */}
+            <div className="glass-thin rounded-2xl p-4 flex flex-col justify-center gap-1.5">
+              <div className="flex items-center gap-2 text-white/60">
+                <I.Heart size={16} />
+                <span className="text-[11px] uppercase tracking-wider">Vitals</span>
+              </div>
+              <div className="text-2xl font-semibold text-white/35">—</div>
+              <p className="text-[11px] text-white/45 leading-snug">
+                Heart rate and temperature require a Phase&nbsp;2 smart collar.
+                This animal carries an ear tag.
+              </p>
+            </div>
             <div className="glass-thin rounded-2xl p-4 flex items-center gap-4 sm:col-span-2 lg:col-span-1">
               <Ring value={animal.device.battery} label={`${animal.device.battery}%`} sublabel="Battery" size={108} thickness={10} />
               <div className="space-y-1.5 text-sm">

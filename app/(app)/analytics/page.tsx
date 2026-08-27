@@ -5,10 +5,13 @@ import { I } from "@/components/ui/icon";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Bars } from "@/components/charts/bars";
 import { Ring } from "@/components/charts/ring";
-import { animals, geofences, incidents, owners, platformStats, trendSeries } from "@/lib/data";
+import { getAnimals, getGeofences, getIncidents, getOwners, getPlatformStats, getTrendSeries } from "@/lib/db";
 import { generateAiSummary } from "@/lib/ai-server";
 
 export default async function AnalyticsPage() {
+  const [animals, geofences, incidents, owners, platformStats, trendSeries] = await Promise.all([
+    getAnimals(), getGeofences(), getIncidents(), getOwners(), getPlatformStats(), getTrendSeries(),
+  ]);
   const briefing = await generateAiSummary({
     system:
       "You are Herdwise, the AI co-pilot for the City of Harare livestock platform. Write a tight three-sentence executive briefing for a municipal supervisor. Lead with the single most important signal, cite specific numbers (animals tracked, devices online, open incidents, anomalies), and end with one clear recommended next action. No headers, no bullets, no preamble — just the briefing as prose.",
