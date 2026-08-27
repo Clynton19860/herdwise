@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as maplibregl from "maplibre-gl";
-import type { Map as MLMap, LngLatLike } from "maplibre-gl";
+import type { Map as MLMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { supabase, realtimeEnabled } from "@/lib/supabase-browser";
 import type { MapAnimal, MapParcel } from "@/lib/db";
@@ -239,17 +239,69 @@ export function FieldMap({
 
   /* ------------------------------------------------ fit bounds */
 
+  /**
+   * Fit to where the herd actually is, not to every point on the platform.
+   *
+   * A naive fitBounds over all data zooms out to contain the furthest outlier —
+   * one animal a thousand kilometres away, a mis-imported parcel — and shows a
+   * continent with nothing readable on it. Instead, take the median position
+   * (robust to outliers in a way the mean is not) and fit only to points within
+   * a working radius of it. `Fit all` stays available so nothing is unreachable.
+   */
+  const OUTLIER_RADIUS_KM = 40;
+
+  const fitTo = useCallback((m: MLMap, all: boolean) => {
+    const pts: [number, number][] = [];
+    for (const a of animals) if (a.lat != null && a.lng != null) pts.push([a.lng, a.lat]);
+    if (!pts.length) {
+      for (const p of parcels) for (const c of p.geojson.coordinates[0] ?? []) pts.push(c as [number, number]);
+    }
+    if (pts.length < 1) return;
+
+    let keep = pts;
+    if (!all && pts.length > 1) {
+      const median = (xs: number[]) => {
+        const s = [...xs].sort((a, b) => a - b);
+        return s[Math.floor(s.length / 2)];
+      };
+      const mLng = median(pts.map((p) => p[0]));
+      const mLat = median(pts.map((p) => p[1]));
+      const km = (lng: number, lat: number) => {
+        const dLat = (lat - mLat) * 111.32;
+        const dLng = (lng - mLng) * 111.32 * Math.cos((mLat * Math.PI) / 180);
+        return Math.hypot(dLat, dLng);
+      };
+      const near = pts.filter(([lng, lat]) => km(lng, lat) <= OUTLIER_RADIUS_KM);
+      if (near.length) keep = near;
+
+      // Include any parcel that overlaps the kept cluster, so a field is never
+      // half off-screen.
+      for (const p of parcels) {
+        for (const c of p.geojson.coordinates[0] ?? []) {
+          const [lng, lat] = c as [number, number];
+          if (km(lng, lat) <= OUTLIER_RADIUS_KM) keep.push([lng, lat]);
+        }
+      }
+    } else if (all) {
+      for (const p of parcels) for (const c of p.geojson.coordinates[0] ?? []) keep.push(c as [number, number]);
+    }
+
+    if (keep.length === 1) {
+      m.easeTo({ center: keep[0], zoom: 17, duration: 600 });
+      return;
+    }
+    const b = keep.reduce((acc, pt) => acc.extend(pt), new maplibregl.LngLatBounds(keep[0], keep[0]));
+    m.fitBounds(b, { padding: 70, maxZoom: 17, duration: all ? 800 : 0 });
+  }, [animals, parcels]);
+
+  const didFit = useRef(false);
   useEffect(() => {
     const m = map.current;
-    if (!m || !ready || focus) return;
-    const pts: LngLatLike[] = [];
-    for (const a of animals) if (a.lat != null && a.lng != null) pts.push([a.lng, a.lat]);
-    for (const p of parcels) for (const c of p.geojson.coordinates[0] ?? []) pts.push(c as LngLatLike);
-    if (pts.length < 2) return;
-    const b = pts.reduce((acc, pt) => acc.extend(pt), new maplibregl.LngLatBounds(pts[0], pts[0]));
-    m.fitBounds(b, { padding: 60, maxZoom: 16, duration: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
+    if (!m || !ready || focus || didFit.current) return;
+    if (!animals.length && !parcels.length) return;
+    fitTo(m, false);
+    didFit.current = true;
+  }, [ready, focus, animals.length, parcels.length, fitTo]);
 
   /* ------------------------------------------------ realtime */
 
@@ -336,6 +388,20 @@ export function FieldMap({
             </button>
           ))}
         </div>
+        <button
+          onClick={() => map.current && fitTo(map.current, false)}
+          className="chip hover:bg-white/10 transition-colors"
+          title="Centre on the main group of animals"
+        >
+          <I.Map size={11} className="mr-1" /> Herd
+        </button>
+        <button
+          onClick={() => map.current && fitTo(map.current, true)}
+          className="chip hover:bg-white/10 transition-colors"
+          title="Zoom out to include every animal and field, however far away"
+        >
+          <I.Globe size={11} className="mr-1" /> All
+        </button>
         <span className="chip" title={live ? "Live updates connected" : "Not receiving live updates"}>
           <span className={`inline-block h-1.5 w-1.5 rounded-full mr-1.5 ${live ? "bg-emerald-300 animate-pulse" : "bg-white/30"}`} />
           {live ? "Live" : "Static"}

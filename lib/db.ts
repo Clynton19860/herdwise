@@ -1,6 +1,6 @@
 import "server-only";
-import fs from "node:fs";
 import { Pool } from "pg";
+import { SUPABASE_ROOT_CA } from "./supabase-ca";
 import { toCanvas, polygonToCanvas } from "./geo";
 import type {
   Animal, AnimalStatus, DeviceType, Geofence, GeoZoneType,
@@ -38,9 +38,9 @@ function pool(): Pool {
     // Supabase's pooler presents a certificate from its own private CA, which
     // is in no system trust store. Pin it rather than disabling verification —
     // this connection carries every animal position over the public internet.
-    ssl: process.env.DATABASE_CA_FILE
-      ? { ca: fs.readFileSync(process.env.DATABASE_CA_FILE, "utf8"), rejectUnauthorized: true }
-      : undefined,
+    // The CA is embedded (see lib/supabase-ca.ts) because serverless bundles do
+    // not reliably ship files read at runtime.
+    ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true },
     max: 5,
     connectionTimeoutMillis: 5_000,
     idleTimeoutMillis: 30_000,
