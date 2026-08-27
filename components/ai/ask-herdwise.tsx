@@ -43,7 +43,7 @@ const SUGGESTIONS: { icon: React.ReactNode; text: string }[] = [
   { icon: <I.Activity size={14} />, text: "Give me a 30-second platform overview" },
 ];
 
-export function AskHerdwise() {
+export function AskHerdwise({ enabled = true }: { enabled?: boolean }) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -110,6 +110,16 @@ export function AskHerdwise() {
         }),
       });
 
+      // A failed request returns JSON, not an SSE stream. Without this the
+      // reader simply finds nothing and the question sits there unanswered —
+      // which looks far more broken than an error message.
+      if (!resp.ok) {
+        const detail = await resp.json().catch(() => null);
+        throw new Error(
+          detail?.error ??
+            `The assistant is unavailable (HTTP ${resp.status}).`,
+        );
+      }
       if (!resp.body) throw new Error("No response body");
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -240,6 +250,9 @@ export function AskHerdwise() {
 
   // Hide on the landing page — only show inside the dashboard
   if (pathname === "/" || pathname === "") return null;
+  // And hide entirely where no model key is configured. A prominent button
+  // that cannot answer is worse than no button.
+  if (!enabled) return null;
 
   return (
     <>

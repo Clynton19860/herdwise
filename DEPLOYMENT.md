@@ -12,7 +12,12 @@ detected.
 | `NEXT_PUBLIC_SUPABASE_URL` | Browser | Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser | Public by design |
 
+| `ANTHROPIC_API_KEY` | Server | **Optional.** Enables the AI assistant |
+
 The values are supplied separately — they are not in this repository.
+
+Without `ANTHROPIC_API_KEY` the app runs normally and the "Ask Herdwise"
+assistant is hidden rather than shown in a state where it cannot answer.
 
 ### Why port 6543 and not 5432
 

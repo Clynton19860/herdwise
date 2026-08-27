@@ -23,7 +23,8 @@ export default function AppLayout({
           {isDatabaseConfigured() ? children : <DatabaseSetupNotice />}
         </main>
       </div>
-      <AskHerdwise />
+      {/* Only offered where a model key is configured. */}
+      <AskHerdwise enabled={Boolean(process.env.ANTHROPIC_API_KEY)} />
     </MobileNavProvider>
   );
 }
