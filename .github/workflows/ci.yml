@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  app:
+    name: Lint, types, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      # The dashboard reads a database at request time but every route is
+      # dynamic, so a build needs no live connection.
+      - run: npm run build
+
+  gateway:
+    name: Gateway protocol tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --omit=dev
+        working-directory: gateway
+      # Built from the vendor's example packets plus frames captured from real
+      # hardware. No database and no device required.
+      - run: npm test
+        working-directory: gateway
+
+  database:
+    name: Containment engine tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: herdwise
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+        ports: [5432:5432]
+    env:
+      PGPASSWORD: postgres
+      PSQL: psql -h localhost -U postgres -d herdwise -v ON_ERROR_STOP=1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migrations
+        run: |
+          for f in supabase/migrations/*.sql; do
+            echo "-- $f"
+            $PSQL -q -f "$f"
+          done
+      # The suite is scoped to its own fixture, so it passes against an empty
+      # database and a seeded one alike.
+      - name: Containment engine
+        run: $PSQL -f supabase/tests/containment_test.sql
+      - name: Seed applies cleanly
+        run: $PSQL -q -f supabase/seed.sql
+      - name: Containment engine, against seeded data
+        run: $PSQL -f supabase/tests/containment_test.sql

@@ -16,19 +16,30 @@
 
 -- ---------------------------------------------------------------- anon read
 
-create policy anon_read_animals on animals for select to anon using (true);
-create policy anon_read_devices on devices for select to anon using (true);
-create policy anon_read_parcels on land_parcels for select to anon using (true);
-create policy anon_read_geofences on geofences for select to anon using (true);
-create policy anon_read_fixes on fixes for select to anon using (true);
-create policy anon_read_containment on containment_events for select to anon using (true);
-create policy anon_read_containment_status on containment_status for select to anon using (true);
-create policy anon_read_owners on owners for select to anon using (true);
-create policy anon_read_incidents on incidents for select to anon using (true);
+-- `anon` is a Supabase-managed role. Guarded so this migration also applies to
+-- a plain Postgres (CI, and any self-hosted deployment), where there is no
+-- anonymous API role and therefore nothing to grant.
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    raise notice 'role "anon" not present — skipping anonymous read policies';
+    return;
+  end if;
 
-grant usage on schema public to anon;
-grant select on animals, devices, land_parcels, geofences, fixes,
-                containment_events, containment_status, owners, incidents to anon;
+  create policy anon_read_animals on animals for select to anon using (true);
+  create policy anon_read_devices on devices for select to anon using (true);
+  create policy anon_read_parcels on land_parcels for select to anon using (true);
+  create policy anon_read_geofences on geofences for select to anon using (true);
+  create policy anon_read_fixes on fixes for select to anon using (true);
+  create policy anon_read_containment on containment_events for select to anon using (true);
+  create policy anon_read_containment_status on containment_status for select to anon using (true);
+  create policy anon_read_owners on owners for select to anon using (true);
+  create policy anon_read_incidents on incidents for select to anon using (true);
+
+  grant usage on schema public to anon;
+  grant select on animals, devices, land_parcels, geofences, fixes,
+                  containment_events, containment_status, owners, incidents to anon;
+end $$;
 
 -- ---------------------------------------------------------------- realtime
 
@@ -99,4 +110,12 @@ from land_parcels p
   left join wards w  on w.id = p.ward_id
   left join owners o on o.id = p.owner_id;
 
-grant select on map_animals, map_parcels to anon, herdwise_gw;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    grant select on map_animals, map_parcels to anon;
+  end if;
+  if exists (select 1 from pg_roles where rolname = 'herdwise_gw') then
+    grant select on map_animals, map_parcels to herdwise_gw;
+  end if;
+end $$;

@@ -1,8 +1,28 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { executeTool, systemPrompt, tools } from "@/lib/ai-tools";
+import { callerKey, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * This endpoint spends money on every call and has no authentication, because
+ * the product has none yet. Until it does, these caps are what stands between a
+ * public URL and an unbounded bill:
+ *
+ *   - a per-caller rate limit
+ *   - a body size ceiling, checked before parsing
+ *   - a cap on replayed history, so a client cannot grow the prompt without end
+ *   - a tool-iteration ceiling
+ *
+ * None of it is a substitute for auth. It is the difference between an accident
+ * costing pennies and costing a month's budget.
+ */
+const LIMIT_PER_WINDOW = Number(process.env.CHAT_RATE_LIMIT ?? 10);
+const WINDOW_SECONDS = Number(process.env.CHAT_RATE_WINDOW_SECONDS ?? 60);
+const MAX_BODY_BYTES = 32 * 1024;
+const MAX_MESSAGES = 30;
+const MAX_MESSAGE_CHARS = 4_000;
 
 type IncomingMessage = {
   role: "user" | "assistant";
@@ -15,32 +35,77 @@ type Body = {
 };
 
 const MODEL = "claude-opus-4-7";
-const MAX_TOKENS = 16000;
-const MAX_TOOL_ITERATIONS = 8;
+const MAX_TOKENS = 4000;
+const MAX_TOOL_ITERATIONS = 6;
+
+const json = (payload: unknown, status: number, headers: Record<string, string> = {}) =>
+  new Response(JSON.stringify(payload), {
+    status,
+    headers: { "content-type": "application/json", ...headers },
+  });
 
 export async function POST(req: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
-    return new Response(
-      JSON.stringify({ error: "ANTHROPIC_API_KEY is not configured" }),
-      { status: 500, headers: { "content-type": "application/json" } }
+    return json({ error: "The assistant is not configured on this deployment." }, 503);
+  }
+
+  const limit = rateLimit(callerKey(req), {
+    limit: LIMIT_PER_WINDOW,
+    windowSeconds: WINDOW_SECONDS,
+  });
+  if (!limit.ok) {
+    return json(
+      { error: `Too many questions — try again in ${limit.retryAfterSeconds}s.` },
+      429,
+      { "retry-after": String(limit.retryAfterSeconds) },
     );
   }
 
-  const body = (await req.json()) as Body;
+  // Check the declared size before reading, so an oversized body is refused
+  // rather than buffered.
+  const declared = Number(req.headers.get("content-length") ?? 0);
+  if (declared > MAX_BODY_BYTES) {
+    return json({ error: "Request too large." }, 413);
+  }
+
+  const raw = await req.text();
+  if (raw.length > MAX_BODY_BYTES) return json({ error: "Request too large." }, 413);
+
+  let body: Body;
+  try {
+    body = JSON.parse(raw) as Body;
+  } catch {
+    return json({ error: "Invalid JSON." }, 400);
+  }
+
   if (!Array.isArray(body.messages) || body.messages.length === 0) {
-    return new Response(JSON.stringify({ error: "messages required" }), {
-      status: 400,
-      headers: { "content-type": "application/json" },
-    });
+    return json({ error: "messages required" }, 400);
+  }
+  if (body.messages.length > MAX_MESSAGES) {
+    return json({ error: "Conversation too long — start a new one." }, 400);
+  }
+  for (const m of body.messages) {
+    if (m?.role !== "user" && m?.role !== "assistant") {
+      return json({ error: "Invalid message role." }, 400);
+    }
+    if (typeof m.content !== "string" || m.content.length > MAX_MESSAGE_CHARS) {
+      return json({ error: "Message too long." }, 400);
+    }
   }
 
   const client = new Anthropic();
 
   // Convert incoming messages into the API shape. We assume each user/assistant turn is plain text.
-  const messages: Anthropic.Messages.MessageParam[] = body.messages.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
+  // An assistant turn that produced no text (the user pressed stop, or the
+  // stream failed) would be sent as an empty content block, which the API
+  // rejects — permanently breaking that conversation.
+  const messages: Anthropic.Messages.MessageParam[] = body.messages
+    .filter((m) => m.content.trim().length > 0)
+    .map((m) => ({ role: m.role, content: m.content }));
+
+  if (messages.length === 0 || messages[messages.length - 1].role !== "user") {
+    return json({ error: "The last message must be from you." }, 400);
+  }
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

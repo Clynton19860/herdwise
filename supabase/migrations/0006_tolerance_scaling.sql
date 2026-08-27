@@ -38,7 +38,15 @@ select
   end as verdict
 from land_parcels p;
 
-grant select on parcel_tolerance_review to anon, herdwise_gw;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    grant select on parcel_tolerance_review to anon;
+  end if;
+  if exists (select 1 from pg_roles where rolname = 'herdwise_gw') then
+    grant select on parcel_tolerance_review to herdwise_gw;
+  end if;
+end $$;
 
 /**
  * Warn on write rather than silently accepting a tolerance that cannot work.
