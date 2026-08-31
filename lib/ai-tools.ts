@@ -26,7 +26,7 @@ export const tools: Anthropic.Messages.Tool[] = [
         query: { type: "string", description: "Free-text match against tag, name, breed, color" },
         species: { type: "string", enum: ["Cattle", "Goat", "Sheep", "Donkey", "Pig"] },
         status: { type: "string", enum: ["Healthy", "Monitoring", "Alert", "Quarantined"] },
-        ward: { type: "string", description: "Match against owner ward, e.g. 'Ward 7' or 'Hatcliffe'" },
+        ward: { type: "string", description: "Match against the owner's ward name" },
         owner_name: { type: "string", description: "Match against owner full name" },
       },
     },
@@ -34,11 +34,11 @@ export const tools: Anthropic.Messages.Tool[] = [
   {
     name: "get_animal",
     description:
-      "Fetch the full record for one animal by its database id (a-001…) or its tag (HRE-CTL-00184). Returns identity, owner, device telemetry, location, health metrics and registration date.",
+      "Fetch the full record for one animal by its database id (a UUID) or its printed ear tag. Returns identity, owner, device telemetry, location, health metrics and registration date.",
     input_schema: {
       type: "object",
       properties: {
-        id_or_tag: { type: "string", description: "Animal id (a-001) or tag (HRE-CTL-00184)" },
+        id_or_tag: { type: "string", description: "Animal id (a UUID) or the printed ear tag" },
       },
       required: ["id_or_tag"],
     },
@@ -129,11 +129,11 @@ export const tools: Anthropic.Messages.Tool[] = [
   {
     name: "navigate",
     description:
-      "Return a route the user should be taken to inside the dashboard. Use ONLY when the user explicitly asks to 'open', 'show me' or 'take me to' a specific entity or page (e.g. 'open the incident board', 'show me HRE-CTL-00184', 'go to owners'). Do not call this unprompted.",
+      "Return a route the user should be taken to inside the dashboard. Use ONLY when the user explicitly asks to 'open', 'show me' or 'take me to' a specific entity or page (e.g. 'open the incident board', 'show me the ear tag', 'go to owners'). Do not call this unprompted.",
     input_schema: {
       type: "object",
       properties: {
-        href: { type: "string", description: "Internal route, e.g. /tracking, /livestock/a-001, /incidents/i-003" },
+        href: { type: "string", description: "Internal route, e.g. /tracking, /livestock/<uuid>, /incidents/<uuid>" },
         label: { type: "string", description: "Short label for the suggestion button" },
       },
       required: ["href", "label"],
@@ -340,7 +340,7 @@ You have read access to live platform data through tools:
 # Style guidance
 - **Use tools liberally** rather than guessing. If the user asks anything about specific animals, owners, zones or incidents, call a tool first.
 - **Be concise.** Default to 1–3 short paragraphs or a compact bulleted list. Skip preamble — start with the answer.
-- **Cite the data.** Use real tags (e.g. HRE-CTL-00184), ward names, incident refs (INC-2026-0418), and numbers from the tools — never invent them.
+- **Cite the data.** Use real tags (e.g. the ear tag), ward names, incident refs (INC-2026-0418), and numbers from the tools — never invent them.
 - **Surface actions.** When relevant, suggest the next useful action ("Want me to open the incident board?") and call \`navigate\` if the user agrees, or proactively when their intent is clear.
 - **Format with care.** Use markdown sparingly — short headers, bold for key entities, monospace for tags/refs. No long tables; prefer concise prose.
 - **Be honest about limits.** If something isn't in the data, say so plainly. Never fabricate.

@@ -41,6 +41,10 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
             endpoint={`/api/animals/${animal.id}`}
             title="Correct animal record"
             fields={[
+              {
+                name: "tag", label: "Ear tag", value: animal.tag,
+                hint: "As printed on the physical tag",
+              },
               { name: "name", label: "Name", value: animal.name ?? "" },
               { name: "breed", label: "Breed", value: animal.breed === "—" ? "" : animal.breed },
               {

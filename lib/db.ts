@@ -1062,13 +1062,14 @@ export async function updateOwner(id: string, o: {
 }
 
 export async function updateAnimal(id: string, a: {
-  name?: string | null; breed?: string | null; sex?: string | null;
+  tag?: string; name?: string | null; breed?: string | null; sex?: string | null;
   birthDate?: string | null; colour?: string | null; status?: string | null;
   parcelName?: string | null;
 }) {
   const rows = await query<{ id: string; tag: string }>(
     `update animals
-        set name       = coalesce($2, name),
+        set tag        = coalesce($9, tag),
+            name       = coalesce($2, name),
             breed      = coalesce($3, breed),
             sex        = coalesce($4::animal_sex, sex),
             birth_date = coalesce($5::date, birth_date),
@@ -1079,7 +1080,8 @@ export async function updateAnimal(id: string, a: {
       where id = $1::uuid
       returning id, tag`,
     [asUuid(id), a.name ?? null, a.breed ?? null, a.sex ?? null,
-     a.birthDate ?? null, a.colour ?? null, a.status ?? null, a.parcelName ?? null]);
+     a.birthDate ?? null, a.colour ?? null, a.status ?? null, a.parcelName ?? null,
+     a.tag ?? null]);
   return rows[0] ?? null;
 }
 
