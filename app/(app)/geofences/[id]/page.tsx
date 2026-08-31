@@ -1,3 +1,4 @@
+import { formatShortDateTime } from "@/lib/time";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Topbar } from "@/components/app/topbar";
@@ -258,9 +259,7 @@ export default async function GeofenceDetailPage({ params }: { params: Params })
                       <td className="px-2 py-3"><SeverityBadge severity={i.severity} /></td>
                       <td className="px-2 py-3"><IncidentStatusBadge status={i.status} /></td>
                       <td className="px-2 py-3 font-mono text-xs text-white/65">
-                        {new Date(i.reportedAt).toLocaleString("en-ZW", {
-                          day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-                        })}
+                        {formatShortDateTime(i.reportedAt)}
                       </td>
                     </tr>
                   ))}

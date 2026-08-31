@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/time";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { SearchHit } from "@/lib/db";
@@ -72,13 +73,7 @@ export function Topbar({
   }, []);
 
   const dateLabel = now
-    ? now.toLocaleString("en-ZW", {
-        weekday: "short",
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+    ? formatDateTime(now)
     : "—";
 
   return (

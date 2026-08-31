@@ -1,3 +1,4 @@
+import { formatWeekday } from "@/lib/time";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
@@ -205,7 +206,7 @@ export default async function DashboardPage() {
             <Bars
               height={180}
               data={trendSeries.movement.map((value, i) => ({
-                label: new Date(trendSeries.days[i]).toLocaleDateString("en-ZW", { weekday: "short" }),
+                label: formatWeekday(trendSeries.days[i]),
                 value,
                 color: i >= trendSeries.movement.length - 3 ? "#5be7ff" : "#00f5a0",
               }))}

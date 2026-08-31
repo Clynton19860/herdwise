@@ -1,3 +1,4 @@
+import { formatShortDateTime } from "@/lib/time";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Topbar } from "@/components/app/topbar";
@@ -107,7 +108,7 @@ export default async function IncidentDetailPage({ params }: { params: Params })
             </p>
             <div className="mt-4 flex items-center flex-wrap gap-x-5 gap-y-2 text-xs text-white/55">
               <span className="flex items-center gap-1.5"><I.Pin size={13} className="text-emerald-300" /> {incident.location.label}</span>
-              <span className="flex items-center gap-1.5"><I.Calendar size={13} /> {reported.toLocaleString("en-ZW", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+              <span className="flex items-center gap-1.5"><I.Calendar size={13} /> {formatShortDateTime(reported)}</span>
               <span className="flex items-center gap-1.5"><I.Users size={13} /> {incident.officer}</span>
             </div>
           </div>
@@ -188,7 +189,7 @@ export default async function IncidentDetailPage({ params }: { params: Params })
                 icon={<I.Alert size={12} />}
                 title="Incident reported"
                 body={`By ${incident.officer} — ${incident.type}.`}
-                when={reported.toLocaleString("en-ZW", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                when={formatShortDateTime(reported)}
                 tone="amber"
               />
               <TimelineItem

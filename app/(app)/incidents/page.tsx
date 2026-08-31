@@ -1,3 +1,4 @@
+import { formatShortDateTime } from "@/lib/time";
 import Link from "next/link";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -127,12 +128,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pa
                     <td className="px-4 py-3 truncate max-w-[180px]">{o?.fullName ?? "—"}</td>
                     <td className="px-4 py-3 text-white/75">{i.officer}</td>
                     <td className="px-4 py-3 font-mono text-xs text-white/65">
-                      {new Date(i.reportedAt).toLocaleString("en-ZW", {
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatShortDateTime(i.reportedAt)}
                     </td>
                   </tr>
                 );
@@ -164,12 +160,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pa
               </div>
               <div className="flex items-center gap-1.5">
                 <I.Calendar size={14} />
-                {new Date(i.reportedAt).toLocaleString("en-ZW", {
-                  day: "2-digit",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {formatShortDateTime(i.reportedAt)}
               </div>
             </div>
           </GlassCard>
