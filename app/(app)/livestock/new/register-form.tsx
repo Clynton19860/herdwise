@@ -72,19 +72,7 @@ type VaxEntry = { id: string; type: string; date: string; vet: string };
 
 /* ---------- Tag generator ---------- */
 
-const speciesCode: Record<string, string> = {
-  Cattle: "CTL",
-  Goat:   "GTS",
-  Sheep:  "SHP",
-  Donkey: "DNK",
-  Pig:    "PIG",
-};
 
-function generateTag(species: string) {
-  const code = speciesCode[species] || "ANI";
-  const n = 400 + Math.floor(Math.random() * 99);
-  return `HRE-${code}-${String(n).padStart(5, "0")}`;
-}
 
 export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
   const [stepIndex, setStepIndex] = useState(0);
@@ -93,6 +81,7 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
   const [issuedTag, setIssuedTag] = useState<string | null>(null);
 
   // Form state
+  const [tag, setTag] = useState<string>("");
   const [ownerId, setOwnerId] = useState<string>("");
   const [species, setSpecies] = useState<string>("Cattle");
   const [breed, setBreed] = useState<string>("");
@@ -126,7 +115,7 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
   const canAdvance = () => {
     switch (stepIndex) {
       case 0: return !!ownerId;
-      case 1: return !!species && !!breed && !!sex && ageMonths > 0;
+      case 1: return !!tag.trim() && !!species && !!sex;
       case 2: return !!weightKg && Number(weightKg) > 0 && colors.length > 0;
       case 3: return deviceType === "None" ? true : (deviceSerial.trim().length >= 4);
       case 4: return true;
@@ -138,12 +127,38 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
   const onNext = () => setStepIndex((i) => Math.min(steps.length - 1, i + 1));
   const onBack = () => setStepIndex((i) => Math.max(0, i - 1));
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const onSubmit = async () => {
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1300));
-    setIssuedTag(generateTag(species));
-    setSubmitting(false);
-    setSubmitted(true);
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/animals", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          tag: tag.trim(),
+          ownerId,
+          species: species.toLowerCase(),
+          breed: breed || null,
+          sex: sex ? sex.toLowerCase() : null,
+          name: name || null,
+          birthDate: dob || null,
+          colour: colors.join(", ") || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSaveError(data.error ?? "Could not register the animal.");
+        return;
+      }
+      setIssuedTag(data.tag);
+      setSubmitted(true);
+    } catch {
+      setSaveError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   /* ---------- Vaccination CRUD ---------- */
@@ -263,6 +278,15 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
                 value={sex}
                 onChange={setSex}
                 columns={2}
+              />
+            </FormField>
+
+            <FormField label="Ear tag number" required hint="As printed on the physical tag">
+              <TextInput
+                placeholder="e.g. HRE-CTL-00001"
+                value={tag}
+                onChange={(e) => setTag((e.target as HTMLInputElement).value.toUpperCase())}
+                iconLeft={<I.Tag size={16} />}
               />
             </FormField>
 
@@ -447,6 +471,13 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
             </div>
           </GlassCard>
         </div>
+      )}
+
+      {stepIndex === 5 && saveError && (
+        <GlassCard tone="thin" className="p-4 flex items-start gap-3 border-rose-400/30">
+          <I.Alert size={16} className="text-rose-300 mt-0.5 shrink-0" />
+          <div className="text-sm text-rose-100">{saveError}</div>
+        </GlassCard>
       )}
 
       {stepIndex === 5 && (

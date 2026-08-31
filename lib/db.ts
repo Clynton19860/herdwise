@@ -914,3 +914,101 @@ export async function createStaff(opts: {
   );
   return rows[0];
 }
+
+/* --------------------------------------------------------------- writes */
+
+/**
+ * Registering an owner.
+ *
+ * `national_id` is unique in the schema, so a duplicate raises rather than
+ * quietly creating a second record for the same person — the caller turns that
+ * into a message about which field to correct.
+ */
+export async function createOwner(o: {
+  fullName: string; nationalId: string; phone: string;
+  wardName?: string | null; address?: string | null;
+}) {
+  const rows = await query<{ id: string }>(
+    `insert into owners (full_name, national_id, phone, ward_id, address)
+     values ($1, $2, $3, (select id from wards where name = $4), $5)
+     returning id`,
+    [o.fullName, o.nationalId, o.phone, o.wardName ?? null, o.address ?? null]);
+  return rows[0];
+}
+
+/** Registering an animal against an owner and, optionally, an allocation. */
+export async function createAnimal(a: {
+  tag: string; name?: string | null; species: string; breed?: string | null;
+  sex?: string | null; birthDate?: string | null; colour?: string | null;
+  ownerId: string; parcelName?: string | null;
+}) {
+  const rows = await query<{ id: string; tag: string }>(
+    `insert into animals (tag, name, species, breed, sex, birth_date, colour,
+                          owner_id, home_parcel_id)
+     values ($1, $2, $3::species_type, $4, $5::animal_sex, $6::date, $7,
+             $8::uuid, (select id from land_parcels where name = $9))
+     returning id, tag`,
+    [a.tag, a.name ?? null, a.species, a.breed ?? null, a.sex ?? null,
+     a.birthDate ?? null, a.colour ?? null, asUuid(a.ownerId), a.parcelName ?? null]);
+  return rows[0];
+}
+
+/** Reporting an incident. The reference comes from the database, not the client. */
+export async function createIncident(i: {
+  type: string; severity: string; animalId?: string | null; ownerId?: string | null;
+  locationLabel?: string | null; officer?: string | null; notes?: string | null;
+}) {
+  const rows = await query<{ id: string; ref: string }>(
+    `insert into incidents (ref, type, severity, animal_id, owner_id,
+                            location_label, officer, notes)
+     values (next_incident_ref(), $1::incident_type, $2::incident_severity,
+             $3::uuid, $4::uuid, $5, $6, $7)
+     returning id, ref`,
+    [i.type, i.severity, asUuid(i.animalId ?? null), asUuid(i.ownerId ?? null),
+     i.locationLabel ?? null, i.officer ?? null, i.notes ?? null]);
+  return rows[0];
+}
+
+/** Logging a vaccination, treatment or inspection. */
+export async function createHealthRecord(h: {
+  animalId: string; type: string; occurredOn: string; nextDueOn?: string | null;
+  description: string; medicine?: string | null; veterinarian?: string | null;
+}) {
+  const rows = await query<{ id: string }>(
+    `insert into health_records (animal_id, type, occurred_on, next_due_on,
+                                 description, medicine, veterinarian)
+     values ($1::uuid, $2::health_record_type, $3::date, $4::date, $5, $6, $7)
+     returning id`,
+    [asUuid(h.animalId), h.type, h.occurredOn, h.nextDueOn ?? null,
+     h.description, h.medicine ?? null, h.veterinarian ?? null]);
+  return rows[0];
+}
+
+/**
+ * Move an incident through its workflow.
+ *
+ * `resolved_at` is set by the same statement that sets the status, so the two
+ * cannot disagree — a resolved incident always carries the moment it was closed,
+ * and reopening one clears it.
+ */
+export async function updateIncidentStatus(
+  id: string, status: string, officer: string,
+) {
+  const rows = await query<{ id: string; status: string }>(
+    `update incidents
+        set status = $2::incident_status,
+            officer = coalesce(officer, $3),
+            resolved_at = case when $2 = 'resolved' then now() else null end
+      where id = $1::uuid
+      returning id, status::text as status`,
+    [asUuid(id), status, officer]);
+  return rows[0] ?? null;
+}
+
+/** Retire a zone without deleting it — containment events still cite it. */
+export async function archiveGeofence(id: string) {
+  const rows = await query<{ id: string }>(
+    `update geofences set active = false where id = $1::uuid returning id`,
+    [asUuid(id)]);
+  return rows[0] ?? null;
+}

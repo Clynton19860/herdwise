@@ -5,6 +5,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { I } from "@/components/ui/icon";
 import { PendingAction, PendingNote } from "@/components/ui/pending-action";
+import { ArchiveZone } from "@/components/geofences/archive-zone";
 import { FieldMap } from "@/components/map/field-map";
 import { Ring } from "@/components/charts/ring";
 import { Sparkline } from "@/components/charts/sparkline";
@@ -86,7 +87,7 @@ export default async function GeofenceDetailPage({ params }: { params: Params })
         <div className="ml-auto flex items-center gap-2 flex-wrap">
           <PendingAction size="sm" variant="glass" iconLeft={<I.Layers size={14} />}>Duplicate</PendingAction>
           <PendingAction size="sm" variant="glass" iconLeft={<I.Settings size={14} />}>Edit rules</PendingAction>
-          <PendingAction size="sm" variant="danger" iconLeft={<I.X size={14} />}>Archive zone</PendingAction>
+          <ArchiveZone id={zone.id} name={zone.name} />
           <PendingNote />
         </div>
       </div>

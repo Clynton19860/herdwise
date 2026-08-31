@@ -116,16 +116,40 @@ export function ReportIncidentForm({
 
   const onNext = () => setStepIndex((i) => Math.min(steps.length - 1, i + 1));
   const onBack = () => setStepIndex((i) => Math.max(0, i - 1));
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const onSubmit = async () => {
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1300));
-    const stamp = new Date()
-      .toISOString()
-      .replace(/[-:T.Z]/g, "")
-      .slice(0, 12);
-    setIssuedRef(`INC-${stamp}`);
-    setSubmitting(false);
-    setSubmitted(true);
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/incidents", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          // The form speaks in labels; the database has an enum.
+          type: type.toLowerCase().replace(/\s+/g, "_"),
+          // The slider is 0–100 for feel; severity is a four-step enum.
+          severity: severityLabel(severity).toLowerCase(),
+          animalId: subjectKind === "animal" ? animalId || null : null,
+          ownerId: subjectKind === "owner" ? ownerId || null : null,
+          location: zoneLabel || null,
+          officer: officer || null,
+          notes: notes || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSaveError(data.error ?? "Could not file the incident.");
+        return;
+      }
+      // The reference comes from the database, so it is unique and sequential.
+      setIssuedRef(data.ref);
+      setSubmitted(true);
+    } catch {
+      setSaveError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted && issuedRef) {
@@ -366,6 +390,13 @@ export function ReportIncidentForm({
             />
           </div>
         </div>
+      )}
+
+      {stepIndex === 4 && saveError && (
+        <GlassCard tone="thin" className="p-4 flex items-start gap-3 border-rose-400/30">
+          <I.Alert size={16} className="text-rose-300 mt-0.5 shrink-0" />
+          <div className="text-sm text-rose-100">{saveError}</div>
+        </GlassCard>
       )}
 
       {stepIndex === 4 && (

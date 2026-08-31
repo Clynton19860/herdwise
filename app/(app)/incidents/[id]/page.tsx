@@ -4,7 +4,8 @@ import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { I } from "@/components/ui/icon";
-import { PendingAction, PendingNote } from "@/components/ui/pending-action";
+import { PendingAction } from "@/components/ui/pending-action";
+import { IncidentActions } from "@/components/incidents/incident-actions";
 import { SeverityBadge, IncidentStatusBadge, StatusBadge } from "@/components/app/indicators";
 import { getAnimal, getGeofences, getIncident, getOwner } from "@/lib/db";
 import { generateAiSummary } from "@/lib/ai-server";
@@ -76,12 +77,7 @@ export default async function IncidentDetailPage({ params }: { params: Params })
           <I.ArrowRight size={14} className="rotate-180" />
           Back to incident board
         </Link>
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <PendingAction size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>Acknowledge</PendingAction>
-          <PendingAction size="sm" variant="glass" iconLeft={<I.Alert size={14} />}>Escalate</PendingAction>
-          <PendingAction size="sm" variant="primary" iconLeft={<I.Check size={14} />}>Resolve</PendingAction>
-          <PendingNote />
-        </div>
+        <IncidentActions id={incident.id} status={incident.status} />
       </div>
 
       {/* ===== Case file header ===== */}

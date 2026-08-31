@@ -117,12 +117,35 @@ export default function RegisterOwnerPage() {
 
   const onNext = () => setStepIndex((i) => Math.min(steps.length - 1, i + 1));
   const onBack = () => setStepIndex((i) => Math.max(0, i - 1));
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const onSubmit = async () => {
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1300));
-    setIssuedId(`OWN-${Date.now().toString().slice(-6)}`);
-    setSubmitting(false);
-    setSubmitted(true);
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/owners", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fullName: `${firstName} ${lastName}`.trim(),
+          nationalId: nid,
+          phone,
+          ward: ward || null,
+          address: [address, village].filter(Boolean).join(", ") || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSaveError(data.error ?? "Could not save the owner.");
+        return;
+      }
+      setIssuedId(data.id);
+      setSubmitted(true);
+    } catch {
+      setSaveError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted && issuedId) {
@@ -401,6 +424,12 @@ export default function RegisterOwnerPage() {
 
       {stepIndex === 5 && (
         <div className="space-y-6">
+          {saveError && (
+            <GlassCard tone="thin" className="p-4 flex items-start gap-3 border-rose-400/30">
+              <I.Alert size={16} className="text-rose-300 mt-0.5 shrink-0" />
+              <div className="text-sm text-rose-100">{saveError}</div>
+            </GlassCard>
+          )}
           <div className="grid md:grid-cols-2 gap-5">
             <Summary title="Identity">
               <KV k="Name" v={`${firstName} ${lastName}`} />
