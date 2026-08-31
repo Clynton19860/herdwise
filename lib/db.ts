@@ -737,3 +737,42 @@ export async function getVaccinationCoverage(): Promise<
     pct: Math.round((Number(r.n) / total) * 100),
   }));
 }
+
+/**
+ * Create a management zone from a ring of real coordinates.
+ *
+ * The zone wizard used to draw on an abstract 0–100 canvas and then simulate a
+ * save, so even a carefully drawn boundary could not have become a real one.
+ * This writes an actual PostGIS polygon, the same way the live map writes a
+ * parcel.
+ *
+ * `st_makevalid` is applied because a hand-drawn ring can self-intersect, and a
+ * geography column rejects an invalid polygon outright rather than storing
+ * something the containment engine would later trip over.
+ */
+export async function createGeofence({
+  name, type, ring, wardName, capacity,
+}: {
+  name: string;
+  type: string;
+  ring: [number, number][];
+  wardName?: string | null;
+  capacity?: number | null;
+}) {
+  const closed =
+    ring.length > 2 && (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])
+      ? [...ring, ring[0]]
+      : ring;
+  const wkt = `POLYGON((${closed.map(([lng, lat]) => `${lng} ${lat}`).join(", ")}))`;
+
+  const rows = await query<{ id: string; name: string; area_ha: string }>(
+    `insert into geofences (name, type, ward_id, geom, capacity)
+     values ($1, $2::zone_type,
+             (select id from wards where name = $3),
+             st_makevalid(st_geogfromtext($4)::geometry)::geography,
+             $5)
+     returning id, name, area_ha`,
+    [name, type, wardName ?? null, wkt, capacity ?? null],
+  );
+  return rows[0];
+}

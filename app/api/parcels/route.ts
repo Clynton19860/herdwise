@@ -1,4 +1,4 @@
-import { createParcel } from "@/lib/db";
+import { createParcel, getMapParcels } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,11 @@ type Body = { name?: string; tenure?: string; ring?: [number, number][] };
  * anon key — the anon role has read access only (migration 0005), so a drawn
  * parcel cannot be forged from the client.
  */
+/** Existing allocations, so a new zone can be drawn in context. */
+export async function GET() {
+  return Response.json(await getMapParcels(), { headers: { "cache-control": "no-store" } });
+}
+
 export async function POST(req: Request) {
   let body: Body;
   try {

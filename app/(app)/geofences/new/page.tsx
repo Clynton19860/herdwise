@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { WizardShell, type WizardStep } from "@/components/wizard/wizard";
 import { SuccessScreen } from "@/components/wizard/success";
-import { PolygonDrawer } from "@/components/wizard/polygon-drawer";
+import { FieldMap } from "@/components/map/field-map";
+import type { MapAnimal, MapParcel } from "@/lib/db";
 import {
   Checkbox,
   ChipGroup,
@@ -48,16 +49,27 @@ const breachActionOptions: RadioCardOption[] = [
 
 type Point = [number, number];
 
-function polygonArea(points: Point[]) {
-  if (points.length < 3) return 0;
-  let s = 0;
-  for (let i = 0; i < points.length; i++) {
-    const [x1, y1] = points[i];
-    const [x2, y2] = points[(i + 1) % points.length];
-    s += x1 * y2 - x2 * y1;
+/**
+ * Area of a lon/lat ring in hectares.
+ *
+ * The wizard previously measured a shape drawn on a 0–100 canvas and multiplied
+ * by a constant, so the hectares shown bore no relation to any real ground. This
+ * is the spherical excess of the polygon on the WGS-84 mean radius — close
+ * enough for a field at these scales, and it agrees with what PostGIS stores.
+ */
+function ringHectares(ring: Point[]) {
+  if (ring.length < 3) return 0;
+  const R = 6371008.8;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  let total = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const [lng1, lat1] = ring[i];
+    const [lng2, lat2] = ring[(i + 1) % ring.length];
+    total += (rad(lng2) - rad(lng1)) * (2 + Math.sin(rad(lat1)) + Math.sin(rad(lat2)));
   }
-  return Math.abs(s) / 2;
+  return Math.abs((total * R * R) / 2) / 10000;
 }
+
 
 export default function NewGeofencePage() {
   // Wards come from the database. A picker that offers wards which are not
@@ -74,6 +86,21 @@ export default function NewGeofencePage() {
     return () => { live = false; };
   }, []);
 
+  // The map draws in real coordinates, so it needs the same data the live map has.
+  const [mapAnimals, setMapAnimals] = useState<MapAnimal[]>([]);
+  const [mapParcels, setMapParcels] = useState<MapParcel[]>([]);
+  useEffect(() => {
+    let live = true;
+    Promise.all([
+      fetch("/api/map/animals").then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/parcels").then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([a, p]) => { if (live) { setMapAnimals(a); setMapParcels(p); } })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -98,7 +125,7 @@ export default function NewGeofencePage() {
   const [notifyVets, setNotifyVets] = useState(false);
   const [notifyChannels, setNotifyChannels] = useState<string[]>(["Push", "SMS"]);
 
-  const hectares = Math.round((polygonArea(polygon) / 100) * 9000);
+  const hectares = Math.round(ringHectares(polygon) * 100) / 100;
 
   const canAdvance = () => {
     switch (stepIndex) {
@@ -115,17 +142,38 @@ export default function NewGeofencePage() {
   const onBack = () => setStepIndex((i) => Math.max(0, i - 1));
   const onSubmit = async () => {
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1300));
-    setIssuedId(`GEO-${Math.floor(Math.random() * 9000 + 1000)}`);
-    setSubmitting(false);
-    setSubmitted(true);
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/geofences", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name,
+          type: zoneType.toLowerCase(),
+          ward: ward || null,
+          capacity: zoneType === "Restricted" ? null : capacity,
+          ring: polygon,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSaveError(payload.error ?? "Could not save the zone.");
+        return;
+      }
+      setIssuedId(payload.id);
+      setSubmitted(true);
+    } catch {
+      setSaveError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted && issuedId) {
     return (
       <SuccessScreen
         title="Zone published"
-        subtitle={`${name} is now active in ${ward}. The platform is monitoring this perimeter in real time.`}
+        subtitle={`${name} is saved and the platform is monitoring this perimeter.`}
         ref={issuedId}
         details={[
           { label: "Type", value: zoneType },
@@ -201,11 +249,19 @@ export default function NewGeofencePage() {
             <span className="text-xs text-white/45">·</span>
             <span className="text-xs text-white/55">{ward || "—"}</span>
           </div>
-          <PolygonDrawer existingZones={[]}
-            zoneType={zoneType}
-            points={polygon}
-            onChange={setPolygon}
-          />
+          <div className="h-[420px] rounded-3xl overflow-hidden">
+            <FieldMap
+              animals={mapAnimals}
+              parcels={mapParcels}
+              drawing
+              onDrawComplete={(ring) => setPolygon(ring)}
+              className="h-full w-full"
+            />
+          </div>
+          <p className="text-xs text-white/55">
+            Click the map to place each corner of the perimeter. The outline closes
+            automatically once you have three or more points.
+          </p>
           <GlassCard tone="thin" className="p-4 grid sm:grid-cols-3 gap-3 text-center">
             <div>
               <div className="text-[10px] uppercase tracking-[0.14em] text-white/45">Vertices</div>
@@ -338,6 +394,12 @@ export default function NewGeofencePage() {
 
       {stepIndex === 4 && (
         <div className="space-y-6">
+          {saveError && (
+            <GlassCard tone="thin" className="p-4 flex items-start gap-3 border-rose-400/30">
+              <I.Alert size={16} className="text-rose-300 mt-0.5 shrink-0" />
+              <div className="text-sm text-rose-100">{saveError}</div>
+            </GlassCard>
+          )}
           <div className="grid md:grid-cols-2 gap-5">
             <Summary title="Identity">
               <KV k="Name" v={name} />
