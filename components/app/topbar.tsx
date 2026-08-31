@@ -49,13 +49,14 @@ export function Topbar({
    * which is worse than showing nothing: an indicator that is always on trains
    * people to ignore it on the day it matters.
    */
-  const [alerts, setAlerts] = useState<{ tone: string; text: string; href: string }[]>([]);
+  const [alerts, setAlerts] = useState<{ id: string; tone: string; text: string; href: string; unread: boolean }[]>([]);
+  const [unread, setUnread] = useState(0);
   const [alertsOpen, setAlertsOpen] = useState(false);
   useEffect(() => {
     let live = true;
     fetch("/api/alerts")
       .then((r) => (r.ok ? r.json() : { items: [] }))
-      .then((d) => { if (live) setAlerts(d.items ?? []); })
+      .then((d) => { if (live) { setAlerts(d.items ?? []); setUnread(d.unread ?? 0); } })
       .catch(() => {});
     return () => { live = false; };
   }, []);
@@ -136,16 +137,28 @@ export function Topbar({
         <div className="relative">
           <button
             aria-label={
-              alerts.length
-                ? `Notifications — ${alerts.length} needing attention`
+              unread > 0
+                ? `Notifications — ${unread} needing attention`
                 : "Notifications — nothing needs attention"
             }
             aria-expanded={alertsOpen}
-            onClick={() => setAlertsOpen((v) => !v)}
+            onClick={() => {
+              const opening = !alertsOpen;
+              setAlertsOpen(opening);
+              // Opening the panel is the acknowledgement. Marking read on close
+              // would clear notices somebody dismissed without reading.
+              if (opening && unread > 0) {
+                void fetch("/api/alerts", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ ids: alerts.filter((a) => a.unread).map((a) => a.id) }),
+                }).then(() => setUnread(0)).catch(() => {});
+              }
+            }}
             className="h-11 w-11 grid place-items-center rounded-2xl glass-thin text-white/80 hover:text-white hover:bg-white/8 transition-colors relative"
           >
             <I.Bell size={18} />
-            {alerts.length > 0 && (
+            {unread > 0 && (
               <span className="absolute top-2.5 right-2.5 inline-flex h-2 w-2">
                 <span className="absolute inset-0 rounded-full bg-rose-400 opacity-70 animate-pulse-ring" />
                 <span className="relative h-2 w-2 rounded-full bg-rose-400 shadow-[0_0_8px_currentColor]" />
@@ -168,7 +181,7 @@ export function Topbar({
                 ) : (
                   alerts.map((a) => (
                     <Link
-                      key={a.href + a.text}
+                      key={a.id}
                       href={a.href}
                       onClick={() => setAlertsOpen(false)}
                       className="flex items-start gap-2.5 px-4 py-3 hover:bg-white/6 transition-colors border-b border-white/5 last:border-b-0"

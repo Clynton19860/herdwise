@@ -144,14 +144,27 @@ export default async function SettingsPage() {
         <h3 className="text-base font-semibold tracking-tight">Notification channels</h3>
         <p className="text-xs text-white/55">How an alert would reach a person</p>
 
-        <div className="mt-4 glass-thin rounded-2xl p-5 flex items-start gap-3">
-          <I.Alert size={16} className="text-amber-300 mt-0.5 shrink-0" />
-          <div className="text-sm text-white/75">
-            No delivery channel is connected yet. Breaches are recorded and shown in
-            the platform, but nothing is sent to an owner or officer outside it.
-            <span className="block mt-1 text-xs text-white/50">
-              SMS, WhatsApp and push were previously listed here as active. They were not.
-            </span>
+        <div className="mt-4 grid sm:grid-cols-2 gap-3">
+          <div className="glass-thin rounded-2xl p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-sm">In the platform</span>
+              <Badge tone="veld">Active</Badge>
+            </div>
+            <p className="mt-1.5 text-xs text-white/55 leading-snug">
+              A breach raises a notice for every active officer, from the database
+              itself — so it fires whether or not anyone has the site open.
+            </p>
+          </div>
+          <div className="glass-thin rounded-2xl p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-sm">SMS to owners</span>
+              <Badge tone="amber">Queued, not sent</Badge>
+            </div>
+            <p className="mt-1.5 text-xs text-white/55 leading-snug">
+              Notices for owners are written and waiting. Sending needs a carrier
+              account, which this pilot does not have yet — nothing is lost in the
+              meantime, and nothing is pretending to have been delivered.
+            </p>
           </div>
         </div>
       </GlassCard>

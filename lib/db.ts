@@ -1110,3 +1110,56 @@ export async function getAnimalsNeedingAttention(limit = 20): Promise<Animal[]> 
       order by a.tag
       limit $1`, [limit])).map(toAnimal);
 }
+
+/* -------------------------------------------------------- notifications */
+
+export type Notice = {
+  id: string; subject: string; body: string; href: string | null;
+  severity: string; createdAt: string; read: boolean;
+};
+
+/** Unread first, newest first. Bounded — the bell is a summary, not an archive. */
+export async function getNotifications(staffId: string, limit = 12): Promise<Notice[]> {
+  const rows = await query<{
+    id: string; subject: string; body: string; href: string | null;
+    severity: string; created_at: Date; read_at: Date | null;
+  }>(
+    `select id, subject, body, href, severity, created_at, read_at
+       from notifications
+      where staff_id = $1::uuid
+      order by (read_at is null) desc, created_at desc
+      limit $2`, [asUuid(staffId), limit]);
+  return rows.map((r) => ({
+    id: r.id, subject: r.subject, body: r.body, href: r.href,
+    severity: r.severity, createdAt: r.created_at.toISOString(), read: r.read_at !== null,
+  }));
+}
+
+export async function markNotificationsRead(staffId: string, ids?: string[]) {
+  if (ids?.length) {
+    await query(
+      `update notifications set read_at = now()
+        where staff_id = $1::uuid and id = any($2::uuid[]) and read_at is null`,
+      [asUuid(staffId), ids]);
+    return;
+  }
+  await query(
+    `update notifications set read_at = now() where staff_id = $1::uuid and read_at is null`,
+    [asUuid(staffId)]);
+}
+
+/**
+ * Notices waiting to go out over a carrier.
+ *
+ * In-app notices are delivered by being read, so they are never pending. These
+ * are the ones that need an SMS or WhatsApp account the pilot does not yet have.
+ */
+export async function getPendingOutbound(limit = 50) {
+  return query<{ id: string; channel: string; subject: string; body: string; phone: string | null }>(
+    `select n.id, n.channel::text as channel, n.subject, n.body, o.phone
+       from notifications n
+       left join owners o on o.id = n.owner_id
+      where n.state = 'pending' and n.channel <> 'in_app'
+      order by n.created_at
+      limit $1`, [limit]);
+}
