@@ -138,8 +138,22 @@ const toOwner = (r: OwnerRow): Owner => ({
   registeredOn: iso(r.created_at),
 });
 
-export async function getOwners(): Promise<Owner[]> {
-  return (await query<OwnerRow>(`${OWNER_SQL} order by o.full_name`)).map(toOwner);
+/**
+ * Paged, with a ceiling.
+ *
+ * These were unbounded: every list page fetched the whole register and rendered
+ * all of it. Invisible with one animal and fatal with a ward's worth — the
+ * query, the payload and the DOM all grow together.
+ *
+ * `PAGE_SIZE` is also a ceiling rather than only a page length. A caller that
+ * forgets to page still cannot pull ten thousand rows into memory.
+ */
+export const PAGE_SIZE = 50;
+
+export async function getOwners(page = 0, size = PAGE_SIZE): Promise<Owner[]> {
+  return (await query<OwnerRow>(
+    `${OWNER_SQL} order by o.full_name limit $1 offset $2`,
+    [Math.min(size, PAGE_SIZE), page * size])).map(toOwner);
 }
 
 export async function getOwner(id: string): Promise<Owner | null> {
@@ -227,8 +241,10 @@ function toAnimal(r: AnimalRow): Animal {
   };
 }
 
-export async function getAnimals(): Promise<Animal[]> {
-  return (await query<AnimalRow>(`${ANIMAL_SQL} order by a.tag`)).map(toAnimal);
+export async function getAnimals(page = 0, size = PAGE_SIZE): Promise<Animal[]> {
+  return (await query<AnimalRow>(
+    `${ANIMAL_SQL} order by a.tag limit $1 offset $2`,
+    [Math.min(size, PAGE_SIZE), page * size])).map(toAnimal);
 }
 
 export async function getAnimal(id: string): Promise<Animal | null> {
@@ -321,8 +337,10 @@ function toIncident(r: IncidentRow): Incident {
   };
 }
 
-export async function getIncidents(): Promise<Incident[]> {
-  return (await query<IncidentRow>(`${INCIDENT_SQL} order by i.reported_at desc`)).map(toIncident);
+export async function getIncidents(page = 0, size = PAGE_SIZE): Promise<Incident[]> {
+  return (await query<IncidentRow>(
+    `${INCIDENT_SQL} order by i.reported_at desc limit $1 offset $2`,
+    [Math.min(size, PAGE_SIZE), page * size])).map(toIncident);
 }
 
 export async function getIncident(idOrRef: string): Promise<Incident | null> {
@@ -1063,4 +1081,32 @@ export async function updateAnimal(id: string, a: {
     [asUuid(id), a.name ?? null, a.breed ?? null, a.sex ?? null,
      a.birthDate ?? null, a.colour ?? null, a.status ?? null, a.parcelName ?? null]);
   return rows[0] ?? null;
+}
+
+/**
+ * Totals, counted in the database rather than by measuring a fetched array.
+ *
+ * A page showing "50 animals" because that is the page size, when the register
+ * holds four hundred, is worse than showing nothing.
+ */
+export async function countRows(table: "animals" | "owners" | "incidents"): Promise<number> {
+  const [row] = await query<{ n: string }>(`select count(*)::text as n from ${table}`);
+  return Number(row?.n ?? 0);
+}
+
+/**
+ * Animals needing attention, decided in SQL.
+ *
+ * The dashboard used to fetch every animal and filter in JavaScript, which is
+ * why the list queries could not simply be capped: the watchlist would have
+ * silently started missing animals beyond the first page.
+ */
+export async function getAnimalsNeedingAttention(limit = 20): Promise<Animal[]> {
+  return (await query<AnimalRow>(
+    `${ANIMAL_SQL}
+      where a.status <> 'healthy'
+         or (d.battery_pct is not null and d.battery_pct between 1 and 24)
+         or d.last_fix_at < now() - interval '2 hours'
+      order by a.tag
+      limit $1`, [limit])).map(toAnimal);
 }

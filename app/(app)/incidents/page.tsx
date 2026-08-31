@@ -9,12 +9,13 @@ import {
   SeverityBadge,
   IncidentStatusBadge,
 } from "@/components/app/indicators";
-import { getAnimals, getIncidents, getOwners } from "@/lib/db";
+import { PAGE_SIZE, countRows, getAnimals, getIncidents, getOwners } from "@/lib/db";
+import { Pager } from "@/components/app/pager";
 import type { Incident } from "@/lib/types";
 
 /** Same pattern as the registry: the choice lives in the URL, so the page stays
  *  server-rendered and a filtered view can be shared or bookmarked. */
-type Params = Promise<{ view?: string }>;
+type Params = Promise<{ view?: string; page?: string }>;
 
 const TABS = [
   { label: "All",      match: () => true },
@@ -26,9 +27,10 @@ const TABS = [
 ];
 
 export default async function IncidentsPage({ searchParams }: { searchParams: Params }) {
-  const { view } = await searchParams;
-  const [all, animals, owners] = await Promise.all([
-    getIncidents(), getAnimals(), getOwners(),
+  const { view, page: pageParam } = await searchParams;
+  const page = Math.max(0, (Number(pageParam) || 1) - 1);
+  const [all, animals, owners, total] = await Promise.all([
+    getIncidents(page), getAnimals(), getOwners(), countRows("incidents"),
   ]);
   const activeTab = TABS.find((t) => t.label === view) ?? TABS[0];
   const incidents = all.filter(activeTab.match);
@@ -167,6 +169,8 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pa
           </Link>
         ))}
       </div>
+
+    <Pager page={page} pageSize={PAGE_SIZE} total={total} basePath="/incidents" params={{ view }} />
     </>
   );
 }

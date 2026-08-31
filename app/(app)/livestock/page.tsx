@@ -4,7 +4,8 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
-import { getAnimals, getOwners } from "@/lib/db";
+import { PAGE_SIZE, countRows, getAnimals, getOwners } from "@/lib/db";
+import { Pager } from "@/components/app/pager";
 import type { Animal } from "@/lib/types";
 
 /**
@@ -13,7 +14,7 @@ import type { Animal } from "@/lib/types";
  * choice in the URL now, which keeps the page server-rendered, makes a filtered
  * view shareable, and means the back button behaves.
  */
-type Params = Promise<{ view?: string }>;
+type Params = Promise<{ view?: string; page?: string }>;
 
 const FILTERS = [
   { label: "All",         match: () => true },
@@ -26,8 +27,13 @@ const FILTERS = [
 ];
 
 export default async function LivestockPage({ searchParams }: { searchParams: Params }) {
-  const { view } = await searchParams;
-  const [all, owners] = await Promise.all([getAnimals(), getOwners()]);
+  const { view, page: pageParam } = await searchParams;
+  const page = Math.max(0, (Number(pageParam) || 1) - 1);
+  // The filter counts describe the whole register, so they are counted rather
+  // than measured against the page that happens to be loaded.
+  const [all, owners, total] = await Promise.all([
+    getAnimals(page), getOwners(), countRows("animals"),
+  ]);
   const findOwner = (id: string) => owners.find((o) => o.id === id);
 
   const active = FILTERS.find((f) => f.label === view) ?? FILTERS[0];
@@ -156,6 +162,13 @@ export default async function LivestockPage({ searchParams }: { searchParams: Pa
             </GlassCard>
           );
         })}
+      <Pager
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        basePath="/livestock"
+        params={{ view }}
+      />
       </div>
     </>
   );

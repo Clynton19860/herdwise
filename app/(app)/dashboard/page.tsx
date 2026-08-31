@@ -17,6 +17,7 @@ import {
   getOwners,
   getPlatformStats,
   getRecentActivity,
+  getAnimalsNeedingAttention,
   getMapAnimals,
   getMapParcels,
   getTrendSeries,
@@ -24,10 +25,11 @@ import {
 } from "@/lib/db";
 
 export default async function DashboardPage() {
-  const [animals, geofences, incidents, owners, platformStats, recentActivity, trendSeries, composition, wards, mapAnimals, mapParcels] =
+  const [animals, geofences, incidents, owners, platformStats, recentActivity, trendSeries, composition, wards, mapAnimals, mapParcels, needsAttention] =
     await Promise.all([
       getAnimals(), getGeofences(), getIncidents(), getOwners(),
       getPlatformStats(), getRecentActivity(), getTrendSeries(), getComposition(), getWards(), getMapAnimals(), getMapParcels(),
+      getAnimalsNeedingAttention(),
     ]);
 
   // Name the ward the pilot actually runs in. The subtitle used to claim coverage
@@ -42,13 +44,6 @@ export default async function DashboardPage() {
   const openIncidents = incidents.filter(
     (i) => i.status === "Open" || i.status === "In progress" || i.status === "Escalated"
   ).length;
-
-  const needsAttention = animals.filter(
-    (a) =>
-      a.status !== "Healthy" ||
-      (a.device.battery > 0 && a.device.battery < 25) ||
-      a.device.lastSyncMin > 120,
-  );
 
   const reportingPct = platformStats.registered
     ? Math.round((platformStats.liveDevices / platformStats.registered) * 100)

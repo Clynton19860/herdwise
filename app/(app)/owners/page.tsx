@@ -4,10 +4,17 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
-import { getAnimals, getOwners } from "@/lib/db";
+import { PAGE_SIZE, countRows, getAnimals, getOwners } from "@/lib/db";
+import { Pager } from "@/components/app/pager";
 
-export default async function OwnersPage() {
-  const [animals, owners] = await Promise.all([getAnimals(), getOwners()]);
+type Params = Promise<{ page?: string }>;
+
+export default async function OwnersPage({ searchParams }: { searchParams: Params }) {
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(0, (Number(pageParam) || 1) - 1);
+  const [animals, owners, total] = await Promise.all([
+    getAnimals(), getOwners(page), countRows("owners"),
+  ]);
   const totalHerd = owners.reduce((s, o) => s + o.herdSize, 0);
 
   return (
@@ -110,6 +117,8 @@ export default async function OwnersPage() {
           );
         })}
       </div>
+
+    <Pager page={page} pageSize={PAGE_SIZE} total={total} basePath="/owners" />
     </>
   );
 }
