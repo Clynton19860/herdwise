@@ -9,6 +9,8 @@ export type Owner = {
   nationalId: string;
   phone: string;
   ward: string;
+  /** Free-text street or area. Null until somebody records one. */
+  address: string | null;
   herdSize: number;
   registeredOn: string;
 };

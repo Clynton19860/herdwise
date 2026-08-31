@@ -7,7 +7,8 @@ import { PendingAction } from "@/components/ui/pending-action";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Ring } from "@/components/charts/ring";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
-import { getAnimal, getHealthRecords, getIncidents, getOwner } from "@/lib/db";
+import { getAnimal, getHealthRecords, getIncidents, getMapParcels, getOwner } from "@/lib/db";
+import { EditRecord } from "@/components/app/edit-record";
 
 type Params = Promise<{ id: string }>;
 
@@ -15,8 +16,8 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
   const { id } = await params;
   const animal = await getAnimal(id);
   if (!animal) notFound();
-  const [owner, incidents, health] = await Promise.all([
-    getOwner(animal.ownerId), getIncidents(), getHealthRecords(animal.id),
+  const [owner, incidents, health, parcels] = await Promise.all([
+    getOwner(animal.ownerId), getIncidents(), getHealthRecords(animal.id), getMapParcels(),
   ]);
   const animalIncidents = incidents.filter((i) => i.animalId === animal.id);
 
@@ -36,6 +37,34 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
           Back to registry
         </Link>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <EditRecord
+            endpoint={`/api/animals/${animal.id}`}
+            title="Correct animal record"
+            fields={[
+              { name: "name", label: "Name", value: animal.name ?? "" },
+              { name: "breed", label: "Breed", value: animal.breed === "—" ? "" : animal.breed },
+              {
+                name: "sex", label: "Sex", value: (animal.sex ?? "").toLowerCase(),
+                options: [
+                  { value: "", label: "Not recorded" },
+                  { value: "female", label: "Female" },
+                  { value: "male", label: "Male" },
+                ],
+              },
+              {
+                name: "status", label: "Status", value: animal.status.toLowerCase(),
+                options: ["healthy", "monitoring", "alert", "quarantined", "deceased"].map((v) => ({
+                  value: v, label: v.replace(/^./, (c) => c.toUpperCase()),
+                })),
+              },
+              { name: "colour", label: "Colour", value: animal.color === "—" ? "" : animal.color },
+              {
+                name: "parcel", label: "Allocation", value: animal.location.zone,
+                options: parcels.map((p) => ({ value: p.name, label: p.name })),
+                hint: "Containment is scored against this allocation",
+              },
+            ]}
+          />
           <PendingAction size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>
             Subscribe
           </PendingAction>

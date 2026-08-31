@@ -116,10 +116,11 @@ const iso = (d: Date | string | null) =>
 type OwnerRow = {
   id: string; full_name: string; national_id: string; phone: string;
   ward: string | null; herd_size: string; created_at: Date;
+  address: string | null;
 };
 
 const OWNER_SQL = `
-  select o.id, o.full_name, o.national_id, o.phone,
+  select o.id, o.full_name, o.national_id, o.phone, o.address,
          w.name as ward,
          (select count(*) from animals a where a.owner_id = o.id) as herd_size,
          o.created_at
@@ -131,6 +132,7 @@ const toOwner = (r: OwnerRow): Owner => ({
   fullName: r.full_name,
   nationalId: r.national_id,
   phone: r.phone,
+  address: r.address ?? null,
   ward: r.ward ?? "—",
   herdSize: Number(r.herd_size),
   registeredOn: iso(r.created_at),
@@ -1010,5 +1012,55 @@ export async function archiveGeofence(id: string) {
   const rows = await query<{ id: string }>(
     `update geofences set active = false where id = $1::uuid returning id`,
     [asUuid(id)]);
+  return rows[0] ?? null;
+}
+
+/**
+ * Corrections.
+ *
+ * Everything here was create-only until now, so a mistyped national ID or a
+ * wrong ward could only be fixed with a database statement. Each of these
+ * updates just the columns the application role was granted in 0011 — role,
+ * ward assignment and identity keys stay out of reach.
+ *
+ * `coalesce($n, column)` throughout: an omitted field leaves the stored value
+ * alone rather than blanking it, so a form that sends a subset cannot silently
+ * erase what it did not carry.
+ */
+export async function updateOwner(id: string, o: {
+  fullName?: string; phone?: string; address?: string | null; wardName?: string | null;
+}) {
+  const rows = await query<{ id: string }>(
+    `update owners
+        set full_name = coalesce($2, full_name),
+            phone     = coalesce($3, phone),
+            address   = coalesce($4, address),
+            ward_id   = coalesce((select id from wards where name = $5), ward_id),
+            updated_at = now()
+      where id = $1::uuid
+      returning id`,
+    [asUuid(id), o.fullName ?? null, o.phone ?? null, o.address ?? null, o.wardName ?? null]);
+  return rows[0] ?? null;
+}
+
+export async function updateAnimal(id: string, a: {
+  name?: string | null; breed?: string | null; sex?: string | null;
+  birthDate?: string | null; colour?: string | null; status?: string | null;
+  parcelName?: string | null;
+}) {
+  const rows = await query<{ id: string; tag: string }>(
+    `update animals
+        set name       = coalesce($2, name),
+            breed      = coalesce($3, breed),
+            sex        = coalesce($4::animal_sex, sex),
+            birth_date = coalesce($5::date, birth_date),
+            colour     = coalesce($6, colour),
+            status     = coalesce($7::animal_status, status),
+            home_parcel_id = coalesce(
+              (select id from land_parcels where name = $8), home_parcel_id)
+      where id = $1::uuid
+      returning id, tag`,
+    [asUuid(id), a.name ?? null, a.breed ?? null, a.sex ?? null,
+     a.birthDate ?? null, a.colour ?? null, a.status ?? null, a.parcelName ?? null]);
   return rows[0] ?? null;
 }

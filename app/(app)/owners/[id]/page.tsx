@@ -11,15 +11,17 @@ import { ScopedMap } from "@/components/app/scoped-map";
 import { Ring } from "@/components/charts/ring";
 import { Sparkline } from "@/components/charts/sparkline";
 import { StatusBadge, BatteryBar, SeverityBadge, IncidentStatusBadge } from "@/components/app/indicators";
-import { getAnimals, getGeofences, getIncidents, getMovementStats, getOwner } from "@/lib/db";
+import { getAnimals, getGeofences, getIncidents, getMovementStats, getOwner, getWards } from "@/lib/db";
+import { EditRecord } from "@/components/app/edit-record";
 
 type Params = Promise<{ id: string }>;
 
 export default async function OwnerDetailPage({ params }: { params: Params }) {
   const { id } = await params;
-  const [owner, animals, geofences, incidents, movement] = await Promise.all([
+  const [owner, animals, geofences, incidents, movement, wards] = await Promise.all([
     getOwner(id), getAnimals(), getGeofences(), getIncidents(),
     getMovementStats({ ownerId: id }),
+    getWards(),
   ]);
   if (!owner) notFound();
 
@@ -52,6 +54,21 @@ export default async function OwnerDetailPage({ params }: { params: Params }) {
           Back to owners directory
         </Link>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <EditRecord
+            endpoint={`/api/owners/${owner.id}`}
+            title="Correct owner details"
+            fields={[
+              { name: "fullName", label: "Full name", value: owner.fullName },
+              { name: "phone", label: "Phone", value: owner.phone, type: "tel" },
+              { name: "address", label: "Address", value: owner.address ?? "" },
+              {
+                name: "ward",
+                label: "Ward",
+                value: owner.ward ?? "",
+                options: wards.map((w) => ({ value: w.name, label: w.name })),
+              },
+            ]}
+          />
           <PendingAction size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>
             Send notice
           </PendingAction>
