@@ -108,7 +108,6 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
 
   const [deviceType, setDeviceType] = useState<string>("Smart Collar");
   const [deviceSerial, setDeviceSerial] = useState<string>("");
-  const [deviceScanned, setDeviceScanned] = useState<boolean>(false);
 
   const [vax, setVax] = useState<VaxEntry[]>([]);
   const [vaxType, setVaxType] = useState<string>("");
@@ -269,7 +268,7 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
 
             <FormField label="Name / nickname" hint="Optional">
               <TextInput
-                placeholder="e.g. Mvura"
+                placeholder="Name used for this animal"
                 value={name}
                 onChange={(e) => setName((e.target as HTMLInputElement).value)}
               />
@@ -301,7 +300,7 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
               <TextInput
                 type="number"
                 min={1}
-                placeholder="e.g. 412"
+                placeholder="Weight in kilograms"
                 value={weightKg}
                 onChange={(e) => setWeightKg((e.target as HTMLInputElement).value)}
                 iconRight={<span className="text-xs text-white/50">kg</span>}
@@ -311,7 +310,7 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
               <TextInput
                 type="number"
                 min={1}
-                placeholder="e.g. 135"
+                placeholder="Height in centimetres"
                 value={heightCm}
                 onChange={(e) => setHeightCm((e.target as HTMLInputElement).value)}
                 iconRight={<span className="text-xs text-white/50">cm</span>}
@@ -352,7 +351,6 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
               value={deviceType}
               onChange={(v) => {
                 setDeviceType(v);
-                setDeviceScanned(false);
                 setDeviceSerial("");
               }}
               columns={4}
@@ -360,40 +358,14 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
           </FormField>
 
           {deviceType !== "None" && (
-            <div className="grid lg:grid-cols-[1fr_320px] gap-5">
-              <FormField label="Device serial / IMEI" required>
-                <TextInput
-                  placeholder="e.g. SC-X204-118"
-                  value={deviceSerial}
-                  onChange={(e) => setDeviceSerial((e.target as HTMLInputElement).value)}
-                  iconLeft={<I.Tag size={16} />}
-                />
-              </FormField>
-              <GlassCard className="p-4">
-                <div className="text-xs uppercase tracking-[0.14em] text-white/45">Scan to pair</div>
-                <p className="text-sm text-white/75 mt-1.5">
-                  Use the field officer app to scan the device QR — the serial will populate automatically.
-                </p>
-                <Button
-                  variant="glass"
-                  size="sm"
-                  className="mt-3 w-full"
-                  iconLeft={<I.Sparkle size={14} />}
-                  onClick={() => {
-                    const fake = `SC-X204-${100 + Math.floor(Math.random() * 899)}`;
-                    setDeviceSerial(fake);
-                    setDeviceScanned(true);
-                  }}
-                >
-                  Open scanner
-                </Button>
-                {deviceScanned && (
-                  <div className="mt-3 text-[11px] text-emerald-200 flex items-center gap-1.5">
-                    <I.Check size={12} /> Paired from QR scan
-                  </div>
-                )}
-              </GlassCard>
-            </div>
+            <FormField label="Device IMEI" required>
+              <TextInput
+                placeholder="15-digit IMEI printed on the tag"
+                value={deviceSerial}
+                onChange={(e) => setDeviceSerial((e.target as HTMLInputElement).value)}
+                iconLeft={<I.Tag size={16} />}
+              />
+            </FormField>
           )}
 
           {deviceType !== "None" && (
@@ -427,7 +399,7 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
               </FormField>
               <FormField label="Veterinarian">
                 <TextInput
-                  placeholder="e.g. Dr. R. Chivasa"
+                  placeholder="Name of the attending vet"
                   value={vaxVet}
                   onChange={(e) => setVaxVet((e.target as HTMLInputElement).value)}
                   iconLeft={<I.Stethoscope size={16} />}

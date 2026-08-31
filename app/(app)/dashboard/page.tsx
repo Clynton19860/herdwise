@@ -17,14 +17,24 @@ import {
   getPlatformStats,
   getRecentActivity,
   getTrendSeries,
+  getWards,
 } from "@/lib/db";
 
 export default async function DashboardPage() {
-  const [animals, geofences, incidents, owners, platformStats, recentActivity, trendSeries, composition] =
+  const [animals, geofences, incidents, owners, platformStats, recentActivity, trendSeries, composition, wards] =
     await Promise.all([
       getAnimals(), getGeofences(), getIncidents(), getOwners(),
-      getPlatformStats(), getRecentActivity(), getTrendSeries(), getComposition(),
+      getPlatformStats(), getRecentActivity(), getTrendSeries(), getComposition(), getWards(),
     ]);
+
+  // Name the ward the pilot actually runs in. The subtitle used to claim coverage
+  // "across the City of Harare" regardless of what was registered.
+  const wardLabel =
+    wards.length === 1
+      ? `Live livestock telemetry across ${wards[0].name}`
+      : wards.length
+        ? `Live livestock telemetry across ${wards.length} wards`
+        : "Live livestock telemetry";
   const alerts = animals.filter((a) => a.status === "Alert" || a.status === "Monitoring").length;
   const openIncidents = incidents.filter(
     (i) => i.status === "Open" || i.status === "In progress" || i.status === "Escalated"
@@ -40,7 +50,7 @@ export default async function DashboardPage() {
     <>
       <Topbar
         title="Operations overview"
-        subtitle="Live livestock telemetry across the City of Harare"
+        subtitle={wardLabel}
       />
 
       {/* ===== Hero metric strip ===== */}

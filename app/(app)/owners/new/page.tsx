@@ -163,7 +163,7 @@ export default function RegisterOwnerPage() {
               <TextInput
                 value={firstName}
                 onChange={(e) => setFirstName((e.target as HTMLInputElement).value)}
-                placeholder="e.g. Tendai"
+                placeholder="First name"
               />
             </FormField>
             <FormField label="Surname" required>
@@ -289,7 +289,7 @@ export default function RegisterOwnerPage() {
               <TextInput
                 value={village}
                 onChange={(e) => setVillage((e.target as HTMLInputElement).value)}
-                placeholder="e.g. Hatcliffe Extension"
+                placeholder="Street or area"
                 iconLeft={<I.Pin size={16} />}
               />
             </FormField>

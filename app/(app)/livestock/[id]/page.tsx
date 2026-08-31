@@ -7,7 +7,7 @@ import { I } from "@/components/ui/icon";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Ring } from "@/components/charts/ring";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
-import { getAnimal, getIncidents, getOwner } from "@/lib/db";
+import { getAnimal, getHealthRecords, getIncidents, getOwner } from "@/lib/db";
 
 type Params = Promise<{ id: string }>;
 
@@ -15,8 +15,8 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
   const { id } = await params;
   const animal = await getAnimal(id);
   if (!animal) notFound();
-  const [owner, incidents] = await Promise.all([
-    getOwner(animal.ownerId), getIncidents(),
+  const [owner, incidents, health] = await Promise.all([
+    getOwner(animal.ownerId), getIncidents(), getHealthRecords(animal.id),
   ]);
   const animalIncidents = incidents.filter((i) => i.animalId === animal.id);
 
@@ -182,32 +182,39 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
           <h3 className="text-base font-semibold tracking-tight">Health record</h3>
           <p className="text-xs text-white/55">Vaccination, treatment & quarantine history</p>
 
-          <ul className="mt-5 relative pl-6 space-y-5 before:content-[''] before:absolute before:left-2 before:top-1 before:bottom-1 before:w-px before:bg-white/10">
-            <Timeline
-              date={animal.health.lastVaccination}
-              title="FMD booster — administered"
-              body="Foot-and-mouth disease booster administered by Dr. R. Chivasa."
-              tone="veld"
-            />
-            <Timeline
-              date="2026-01-08"
-              title="Annual deworming"
-              body="Routine deworming during dry season ward sweep."
-              tone="cyan"
-            />
-            <Timeline
-              date="2025-08-22"
-              title="Brucellosis test"
-              body="Test negative. Cleared for breeding programme."
-              tone="violet"
-            />
-            <Timeline
-              date={animal.health.nextVaccination}
-              title="Next FMD booster — scheduled"
-              body="Scheduled at ward clinic. Owner notified via SMS."
-              tone="amber"
-            />
-          </ul>
+          {/* The timeline used to be four hardcoded entries — an FMD booster, a
+              deworming, a brucellosis test — rendered for every animal alike. A
+              fabricated medical history is worse than an empty one: a vet has no
+              way to tell it from a real record. */}
+          {health.length === 0 ? (
+            <div className="mt-6 glass-thin rounded-2xl p-6 text-center">
+              <I.Stethoscope size={22} className="mx-auto text-white/40" />
+              <div className="mt-3 text-sm">No health record yet</div>
+              <p className="mt-1.5 text-xs text-white/55 max-w-xs mx-auto">
+                Vaccinations, treatments and test results logged for {animal.name} will
+                appear here in order.
+              </p>
+            </div>
+          ) : (
+            <ul className="mt-5 relative pl-6 space-y-5 before:content-[''] before:absolute before:left-2 before:top-1 before:bottom-1 before:w-px before:bg-white/10">
+              {health.map((h) => (
+                <Timeline
+                  key={h.id}
+                  date={h.occurred_on}
+                  title={h.type.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase())}
+                  body={[h.description, h.veterinarian && `Administered by ${h.veterinarian}.`]
+                    .filter(Boolean)
+                    .join(" ")}
+                  tone={
+                    h.type.includes("vaccin") ? "veld"
+                      : h.type.includes("treat") ? "cyan"
+                      : h.type.includes("quarant") ? "amber"
+                      : "violet"
+                  }
+                />
+              ))}
+            </ul>
+          )}
         </GlassCard>
 
         <GlassCard className="p-6">

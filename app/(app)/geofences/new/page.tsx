@@ -159,7 +159,7 @@ export default function NewGeofencePage() {
               <TextInput
                 value={name}
                 onChange={(e) => setName((e.target as HTMLInputElement).value)}
-                placeholder="e.g. Hatcliffe North Grazing"
+                placeholder="Name for this zone"
                 iconLeft={<I.Tag size={16} />}
               />
             </FormField>

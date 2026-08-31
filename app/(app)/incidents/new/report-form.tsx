@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { WizardShell, type WizardStep } from "@/components/wizard/wizard";
 import { SuccessScreen } from "@/components/wizard/success";
 import { PhotoUpload, type UploadedPhoto } from "@/components/wizard/photo-upload";
@@ -38,13 +38,6 @@ const typeOptions: RadioCardOption[] = [
   { value: "Death",            label: "Animal death",      description: "Loss of an animal",                   icon: <I.Alert size={20} /> },
 ];
 
-const officers = [
-  { value: "Insp. T. Moyo",   label: "Insp. T. Moyo",   hint: "Hatcliffe · on shift" },
-  { value: "Sgt. P. Ncube",   label: "Sgt. P. Ncube",   hint: "Mabvuku · on shift" },
-  { value: "Dr. R. Chivasa",  label: "Dr. R. Chivasa",  hint: "Veterinary · on call" },
-  { value: "Officer F. Dube", label: "Officer F. Dube", hint: "Kuwadzana · on shift" },
-  { value: "Insp. M. Sibanda",label: "Insp. M. Sibanda",hint: "Epworth · on shift" },
-];
 
 const severityColor = (s: number) =>
   s >= 80 ? "#ff6b6b" : s >= 60 ? "#ffb547" : s >= 40 ? "#5be7ff" : "#34c071";
@@ -63,6 +56,27 @@ export function ReportIncidentForm({
   zones: Geofence[];
 }) {
   const findOwner = (id: string) => owners.find((o) => o.id === id);
+  // Assignable staff come from the database. The list used to name five officers
+  // who had no staff row, so an incident could be assigned to nobody real.
+  const [officers, setOfficers] = useState<{ value: string; label: string; hint: string }[]>([]);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/staff")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { name: string; role: string }[]) => {
+        if (live)
+          setOfficers(
+            rows.map((o) => ({
+              value: o.name,
+              label: o.name,
+              hint: o.role.replace(/^./, (c) => c.toUpperCase()),
+            })),
+          );
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+
   const [stepIndex, setStepIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -185,7 +199,7 @@ export function ReportIncidentForm({
                   getId={(a) => a.id}
                   getLabel={(a) => `${a.tag}${a.name ? ` — ${a.name}` : ""}`}
                   getDescription={(a) => `${a.breed} · ${a.species} · ${a.location.zone}`}
-                  placeholder="HRE-CTL-00184 or 'Mvura'…"
+                  placeholder="Search by ear tag or animal name…"
                 />
               </FormField>
               {selectedAnimal && (
@@ -261,7 +275,7 @@ export function ReportIncidentForm({
           <div className="grid md:grid-cols-2 gap-5">
             <FormField label="Zone / landmark label">
               <TextInput
-                placeholder="e.g. Kuwadzana Restricted park boundary"
+                placeholder="Where did this happen?"
                 value={zoneLabel}
                 onChange={(e) => setZoneLabel((e.target as HTMLInputElement).value)}
                 iconLeft={<I.Pin size={16} />}

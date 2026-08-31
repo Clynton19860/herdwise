@@ -309,12 +309,36 @@ export default async function OwnerDetailPage({ params }: { params: Params }) {
 
         <GlassCard className="p-5 sm:p-6">
           <h3 className="text-base font-semibold tracking-tight">Recent activity</h3>
-          <ul className="mt-4 space-y-3 text-sm">
-            <Activity when="2h ago" text="2 animals moved into Mabvuku Buffer" tone="amber" />
-            <Activity when="Yesterday" text="WhatsApp · vaccination reminder delivered" tone="veld" />
-            <Activity when="2d ago" text="Smart collar SC-X204-301 paired" tone="cyan" />
-            <Activity when="5d ago" text="Herd certification renewed by ward office" tone="violet" />
-          </ul>
+          {/* These were four fixed lines — a WhatsApp reminder, a collar pairing, a
+              certification renewal — shown identically for every owner. Real
+              activity is what this owner's tags actually reported. */}
+          {herd.length === 0 ? (
+            <div className="mt-4 glass-thin rounded-2xl p-5 text-center">
+              <div className="text-sm">No activity yet</div>
+              <p className="mt-1 text-xs text-white/55">
+                Activity appears once this owner has a registered animal wearing a tag.
+              </p>
+            </div>
+          ) : (
+            <ul className="mt-4 space-y-3 text-sm">
+              {herd
+                .slice()
+                .sort((a, b) => a.device.lastSyncMin - b.device.lastSyncMin)
+                .slice(0, 4)
+                .map((a) => (
+                  <Activity
+                    key={a.id}
+                    when={
+                      a.device.lastSyncMin < 60
+                        ? `${a.device.lastSyncMin}m ago`
+                        : `${Math.round(a.device.lastSyncMin / 60)}h ago`
+                    }
+                    text={`${a.name} · ${a.tag} reported a position`}
+                    tone="veld"
+                  />
+                ))}
+            </ul>
+          )}
         </GlassCard>
       </div>
     </>

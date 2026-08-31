@@ -297,58 +297,6 @@ export default async function LandingPage() {
           </Reveal>
         </div>
 
-        {/* Floating live ticker */}
-        <Reveal className="mx-auto max-w-7xl mt-12 sm:mt-16" delay={300}>
-          <GlassCard tone="thin" className="px-3 sm:px-4 py-3 overflow-hidden">
-            <div className="flex items-center gap-3">
-              <Badge tone="veld" dot>
-                Live feed
-              </Badge>
-              <div className="scroll-fade-x overflow-hidden flex-1">
-                <div className="flex gap-8 sm:gap-10 animate-ticker whitespace-nowrap text-xs sm:text-sm text-white/70">
-                  {Array.from({ length: 2 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-8 sm:gap-10">
-                      <span>
-                        <span className="text-emerald-300 font-medium">
-                          SC-X204-118
-                        </span>{" "}
-                        position update · Hatcliffe
-                      </span>
-                      <span>
-                        <span className="text-amber-300 font-medium">
-                          Geofence
-                        </span>{" "}
-                        Mabvuku Buffer — 22 / 50
-                      </span>
-                      <span>
-                        <span className="text-rose-300 font-medium">
-                          Anomaly
-                        </span>{" "}
-                        HRE-CTL-00302 elevated temp
-                      </span>
-                      <span>
-                        <span className="text-cyan-300 font-medium">Vax</span> 14
-                        animals · Ward 18
-                      </span>
-                      <span>
-                        <span className="text-violet-300 font-medium">
-                          Owner
-                        </span>{" "}
-                        Chiedza Marufu joined
-                      </span>
-                      <span>
-                        <span className="text-emerald-300 font-medium">
-                          Patrol
-                        </span>{" "}
-                        dispatched · Kuwadzana
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </GlassCard>
-        </Reveal>
       </section>
 
       {/* ========== Platform features ========== */}

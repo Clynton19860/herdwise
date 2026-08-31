@@ -129,16 +129,6 @@ export function Topbar({
                 <I.X size={16} />
               </button>
             </label>
-            <div className="mt-3 px-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
-              Quick filters
-            </div>
-            <div className="px-2 mt-2 flex flex-wrap gap-2 text-sm">
-              <span className="chip">Cattle</span>
-              <span className="chip">Alerts</span>
-              <span className="chip">Quarantined</span>
-              <span className="chip">Critical</span>
-              <span className="chip">Ward 18</span>
-            </div>
           </div>
         </div>
       )}

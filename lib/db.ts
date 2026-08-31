@@ -66,6 +66,20 @@ function asUuid(value: string | null | undefined): string | null {
     : null;
 }
 
+/**
+ * Show enough of an IMEI to identify a tag in hand, and no more.
+ *
+ * The tag protocol treats the IMEI as the device's entire identity, and the
+ * gateway listens on a public address — so a published IMEI is a route to
+ * injecting fabricated positions for that animal. Until authentication exists,
+ * every screen is readable by anyone holding the anon key, so the full number
+ * does not leave the database.
+ */
+function maskImei(imei: string | null): string {
+  if (!imei) return "unpaired";
+  return imei.length <= 4 ? imei : `\u2022\u2022\u2022\u2022 ${imei.slice(-4)}`;
+}
+
 async function query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
   const { rows } = await pool().query(sql, params);
   return rows as T[];
@@ -185,7 +199,7 @@ function toAnimal(r: AnimalRow): Animal {
     ownerId: r.owner_id,
     device: {
       type: DEVICE_LABEL[r.device_type ?? "other"] ?? "Ear Tag",
-      serial: r.imei ?? "unpaired",
+      serial: maskImei(r.imei),
       battery: r.battery_pct ?? 0,
       signal: r.signal_pct ?? 0,
       lastSyncMin: minutesSince(r.last_fix_at),
@@ -403,8 +417,24 @@ export async function getRecentActivity() {
     (select reported_at, 'Incident ' || ref || ': ' || replace(type::text, '_', ' '), 'amber'
        from incidents order by reported_at desc limit 5)
     union all
-    (select observed_at, 'Device anomaly: ' || kind || ' (' || coalesce(imei, 'unknown') || ')', 'violet'
-       from device_anomalies order by observed_at desc limit 3)
+    -- Diagnostics are written in the officer's language, not the protocol's, and
+    -- identify the animal by ear tag rather than by IMEI — the tag protocol treats
+    -- the IMEI as the device's whole identity, so it does not belong on screen.
+    -- Limited to one row: unpositioned fixes alone number in the thousands and
+    -- would otherwise crowd out every breach and incident in the feed.
+    (select dan.observed_at,
+            case dan.kind
+              when 'unpositioned_fix'         then 'Tag reported without a GPS fix'
+              when 'undocumented_sync_fields' then 'Tag sent extra fields in a sync message'
+              when 'duplicate_imei'           then 'Two connections claimed the same tag'
+              when 'source_ip_changed'        then 'Tag reconnected from a new network address'
+              else replace(dan.kind, '_', ' ')
+            end || coalesce(' — ' || a.tag, ''),
+            'violet'
+       from device_anomalies dan
+       left join devices d on d.imei = dan.imei
+       left join animals a on a.id = d.animal_id
+      order by dan.observed_at desc limit 1)
     order by at desc limit 8`);
 
   return rows.map((r, i) => ({
@@ -651,4 +681,59 @@ export async function getAssistantContext(): Promise<{ tag: string | null; ward:
 /** Registered wards, for pickers. Ordered as an operator would expect to read them. */
 export async function getWards(): Promise<{ id: string; name: string }[]> {
   return query<{ id: string; name: string }>(`select id, name from wards order by name`);
+}
+
+/**
+ * Device diagnostics, grouped by kind.
+ *
+ * The analytics page used to display an invented "theft risk score" weighted
+ * across four wards that were never registered. These counts are the real thing
+ * the gateway has observed, and they are the honest version of the same panel:
+ * what the hardware is actually doing, rather than a model that does not exist.
+ */
+export async function getDeviceDiagnostics(): Promise<
+  { kind: string; count: number; lastSeen: Date | null }[]
+> {
+  const rows = await query<{ kind: string; n: string; last_seen: Date | null }>(
+    `select kind, count(*)::text as n, max(observed_at) as last_seen
+       from device_anomalies
+      group by kind
+      order by count(*) desc`);
+  return rows.map((r) => ({ kind: r.kind, count: Number(r.n), lastSeen: r.last_seen }));
+}
+
+/** Staff who can be assigned work, ordered with field officers first. */
+export async function getStaff(): Promise<{ id: string; name: string; role: string }[]> {
+  const rows = await query<{ id: string; full_name: string; role: string }>(
+    `select id, full_name, role::text as role
+       from staff
+      order by case role::text when 'officer' then 0 when 'vet' then 1 else 2 end, full_name`);
+  return rows.map((r) => ({ id: r.id, name: r.full_name, role: r.role }));
+}
+
+/**
+ * Share of the herd carrying each kind of health record.
+ *
+ * The analytics page used to draw a fixed bar chart — FMD 88%, brucellosis 64%,
+ * rabies 72%, anthrax 41% — with no health records in the database at all. This
+ * returns an empty list when nothing has been recorded, so the panel can say so
+ * instead of inventing coverage.
+ */
+export async function getVaccinationCoverage(): Promise<
+  { type: string; animals: number; pct: number }[]
+> {
+  const [tot] = await query<{ n: string }>(`select count(*)::text as n from animals`);
+  const total = Number(tot?.n ?? 0);
+  if (!total) return [];
+  const rows = await query<{ type: string; n: string }>(
+    `select type::text as type, count(distinct animal_id)::text as n
+       from health_records
+      group by type
+      order by count(distinct animal_id) desc
+      limit 6`);
+  return rows.map((r) => ({
+    type: r.type,
+    animals: Number(r.n),
+    pct: Math.round((Number(r.n) / total) * 100),
+  }));
 }
