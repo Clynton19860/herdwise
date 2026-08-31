@@ -70,3 +70,8 @@ jobs:
         run: $PSQL -q -f supabase/seed.sql
       - name: Containment engine, against seeded data
         run: $PSQL -f supabase/tests/containment_test.sql
+      # The write paths: inserts, constraints, cascades and the notification
+      # trigger. The application suite covers pure functions and cannot see any
+      # of this — both bugs that reached production were of exactly this shape.
+      - name: Write paths
+        run: $PSQL -f supabase/tests/writes_test.sql
