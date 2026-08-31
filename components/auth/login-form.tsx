@@ -30,7 +30,6 @@ export function LoginForm({
   const [password, setPassword] = useState(testPassword ?? "");
   const [code, setCode] = useState("");
   const [challenge, setChallenge] = useState("");
-  const [devCode, setDevCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -55,7 +54,6 @@ export function LoginForm({
         return;
       }
       setChallenge(data.challenge);
-      setDevCode(data.code ?? null);
       setStep("code");
     } catch {
       setError("Could not reach the server.");
@@ -154,18 +152,10 @@ export function LoginForm({
             <div>
               <h1 className="text-lg font-semibold tracking-tight">Enter your code</h1>
               <p className="text-xs text-white/55 mt-1">
-                Six digits, valid for ten minutes.
+                We&rsquo;ve emailed a six-digit code to {email}. It&rsquo;s valid for ten
+                minutes.
               </p>
             </div>
-
-            {devCode && (
-              <div className="glass-thin rounded-2xl p-3 flex items-center gap-3">
-                <Badge tone="amber">Testing</Badge>
-                <span className="text-sm">
-                  Your code is <strong className="font-mono tracking-[0.2em]">{devCode}</strong>
-                </span>
-              </div>
-            )}
 
             <label className="block">
               <span className="text-xs text-white/55">Verification code</span>
@@ -217,8 +207,8 @@ export function LoginForm({
           <div className="font-mono">{testEmail}</div>
           <div className="font-mono">{testPassword}</div>
           <p className="mt-2 text-white/45 leading-snug">
-            Shown because AUTH_SHOW_CODE is set. Unset it and these disappear, along
-            with the code on the next screen.
+            Shown because AUTH_SHOW_CODE is set. Unset it and these disappear. The
+            six-digit code always arrives by email.
           </p>
         </div>
       )}

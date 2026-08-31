@@ -1,8 +1,6 @@
-import { consumeLoginCode, getLiveLoginCode, getStaffByEmail, recordCodeAttempt } from "@/lib/db";
-import {
-  MAX_CODE_ATTEMPTS, SESSION_COOKIE, codeMatches, issueSession,
-  readChallenge, sessionCookieOptions,
-} from "@/lib/auth";
+import { getStaffByEmail, touchLastLogin } from "@/lib/db";
+import { SESSION_COOKIE, issueSession, readChallenge, sessionCookieOptions } from "@/lib/auth";
+import { checkSignInCode } from "@/lib/supabase-auth";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -11,10 +9,13 @@ export const dynamic = "force-dynamic";
 /**
  * Step two: exchange a correct code for a session.
  *
- * Six digits is a million combinations, which is a lot for a person and nothing
- * for a script — so the attempt counter, not the length, is what makes the code
- * safe. After a handful of wrong guesses the code is spent and a new one must be
- * requested, which also resets the rate limit clock against the attacker.
+ * Supabase both issued the code and checks it, which means the attempt ceiling
+ * and expiry are enforced there rather than here — `otp_expiry` and the
+ * verification rate limit live in `supabase/config.toml` beside the templates,
+ * so the ten minutes the email promises is the ten minutes actually applied.
+ *
+ * The session that comes back is this application's own signed cookie. Supabase
+ * is the second factor, not the identity.
  */
 export async function POST(req: Request) {
   const limit = rateLimit(`verify:${callerKey(req)}`, { limit: 12, windowSeconds: 300 });
@@ -42,27 +43,11 @@ export async function POST(req: Request) {
   }
 
   const staff = await getStaffByEmail(claim.email);
-  const live = staff ? await getLiveLoginCode(staff.id) : null;
-
-  const wrong = () =>
-    Response.json({ error: "That code is not right or has expired." }, { status: 401 });
-
-  if (!staff || !staff.active || !live) return wrong();
-
-  if (live.attempts >= MAX_CODE_ATTEMPTS) {
-    await consumeLoginCode(live.id, staff.id);
-    return Response.json(
-      { error: "Too many wrong codes. Request a new one." },
-      { status: 401 },
-    );
+  if (!staff || !staff.active || !(await checkSignInCode(claim.email, code))) {
+    return Response.json({ error: "That code is not right or has expired." }, { status: 401 });
   }
 
-  if (!codeMatches(code, live.code_hash)) {
-    await recordCodeAttempt(live.id);
-    return wrong();
-  }
-
-  await consumeLoginCode(live.id, staff.id);
+  await touchLastLogin(staff.id);
 
   const res = Response.json({ ok: true, name: staff.fullName });
   const token = issueSession(staff.id, staff.tokenVersion);

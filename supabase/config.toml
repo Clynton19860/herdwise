@@ -1,0 +1,44 @@
+# Supabase project configuration.
+#
+# Only the parts this platform actually relies on are set here. `supabase config
+# push` writes this section to the linked project, so anything listed is a
+# deliberate choice rather than a default carried along for the ride.
+
+project_id = "herdwise"
+
+[auth]
+enabled = true
+# Codes are entered in the app, not clicked, so no email in this project carries
+# a redirect link. This is set for completeness rather than because a flow
+# depends on it.
+site_url = "http://localhost:3001"
+additional_redirect_urls = []
+enable_signup = true
+minimum_password_length = 8
+
+[auth.email]
+enable_signup = true
+# Accounts are created by an administrator, and the six-digit code proves the
+# address on first sign-in, so a separate confirmation step would ask the same
+# question twice.
+enable_confirmations = false
+double_confirm_changes = true
+secure_password_change = false
+# Six digits, valid for ten minutes — the templates state both, so these two
+# values and the wording have to move together.
+otp_length = 6
+otp_expiry = 600
+
+# Branded templates. `{{ .Token }}` renders the six-digit code; none of these
+# templates contains a link.
+[auth.email.template.confirmation]
+subject = "Confirm your Herdwise account"
+content_path = "./supabase/templates/sign-up.html"
+
+[auth.email.template.magic_link]
+subject = "Your Herdwise sign-in code"
+content_path = "./supabase/templates/magic-link.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Herdwise password"
+content_path = "./supabase/templates/reset-password.html"

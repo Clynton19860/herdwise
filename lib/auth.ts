@@ -1,6 +1,6 @@
 import "server-only";
 import {
-  createHmac, randomBytes, randomInt, scrypt as scryptCb, timingSafeEqual,
+  createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual,
   type ScryptOptions,
 } from "node:crypto";
 
@@ -62,32 +62,16 @@ export async function verifyPassword(password: string, stored: string | null): P
 /* ----------------------------------------------------------------- codes */
 
 /**
- * `randomInt` rather than `Math.random()`: this is the second factor, and a
- * predictable one is no factor at all. Padded so every code is six digits —
- * a code rendered as "4821" is a different code from "004821" to a person
- * typing it.
+ * The six-digit code is issued, delivered and checked by Supabase Auth, so none
+ * of that lives here any more. Supabase's own mailer sends it using the branded
+ * templates in `supabase/templates`, which is what removed the need for a
+ * third-party mail account.
+ *
+ * The expiry stays defined here because the login form quotes it to the person
+ * waiting. It must match `otp_expiry` in `supabase/config.toml`, which is what
+ * actually enforces it.
  */
-export function generateCode(): string {
-  return String(randomInt(0, 1_000_000)).padStart(6, "0");
-}
-
-/**
- * Codes are stored hashed, like passwords. `login_codes` is readable by the
- * application role, and a plaintext code sitting there for ten minutes is a
- * second password in the clear.
- */
-export function hashCode(code: string): string {
-  return createHmac("sha256", secret()).update(`code:${code}`).digest("base64url");
-}
-
-export function codeMatches(code: string, storedHash: string): boolean {
-  const a = Buffer.from(hashCode(code));
-  const b = Buffer.from(storedHash);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 export const CODE_TTL_MINUTES = 10;
-export const MAX_CODE_ATTEMPTS = 5;
 
 /* -------------------------------------------------------------- sessions */
 

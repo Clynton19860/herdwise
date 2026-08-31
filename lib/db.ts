@@ -872,36 +872,16 @@ export async function getStaffById(id: string): Promise<StaffAccount | null> {
 }
 
 /**
- * Issue a code, replacing any still outstanding for that person.
+ * Records a successful sign-in.
  *
- * Superseding matters: with several live codes at once, an attacker gets several
- * chances at the same account and the attempt limit means proportionally less.
+ * Issuing and checking the six-digit code moved to Supabase Auth, so that it can
+ * be delivered by Supabase's own mailer using the branded templates in
+ * `supabase/templates`. The `login_codes` table this app used to manage is no
+ * longer written to.
  */
-export async function issueLoginCode(staffId: string, codeHash: string, ttlMinutes: number) {
-  await query(`select prune_login_codes()`);
+export async function touchLastLogin(staffId: string) {
   await query(
-    `update login_codes set consumed_at = now()
-      where staff_id = $1::uuid and consumed_at is null`, [asUuid(staffId)]);
-  const rows = await query<{ id: string }>(
-    `insert into login_codes (staff_id, code_hash, expires_at)
-     values ($1::uuid, $2, now() + make_interval(mins => $3))
-     returning id`, [asUuid(staffId), codeHash, ttlMinutes]);
-  return rows[0].id;
-}
-
-export async function getLiveLoginCode(staffId: string) {
-  const rows = await query<{ id: string; code_hash: string; attempts: number }>(
-    `select id, code_hash, attempts from login_codes
-      where staff_id = $1::uuid and consumed_at is null and expires_at > now()
-      order by created_at desc limit 1`, [asUuid(staffId)]);
-  return rows[0] ?? null;
-}
-
-export async function recordCodeAttempt(codeId: string) {
-  await query(`update login_codes set attempts = attempts + 1 where id = $1::uuid`, [asUuid(codeId)]);
-}
-
-export async function consumeLoginCode(codeId: string, staffId: string) {
-  await query(`update login_codes set consumed_at = now() where id = $1::uuid`, [asUuid(codeId)]);
-  await query(`update staff set last_login_at = now() where auth_user_id = $1::uuid`, [asUuid(staffId)]);
+    `update staff set last_login_at = now() where auth_user_id = $1::uuid`,
+    [asUuid(staffId)],
+  );
 }
