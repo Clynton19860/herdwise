@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
+import { PendingAction, PendingNote } from "@/components/ui/pending-action";
 import { SeverityBadge, IncidentStatusBadge, StatusBadge } from "@/components/app/indicators";
 import { getAnimal, getGeofences, getIncident, getOwner } from "@/lib/db";
 import { generateAiSummary } from "@/lib/ai-server";
@@ -77,9 +77,10 @@ export default async function IncidentDetailPage({ params }: { params: Params })
           Back to incident board
         </Link>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <Button size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>Acknowledge</Button>
-          <Button size="sm" variant="glass" iconLeft={<I.Alert size={14} />}>Escalate</Button>
-          <Button size="sm" variant="primary" iconLeft={<I.Check size={14} />}>Resolve</Button>
+          <PendingAction size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>Acknowledge</PendingAction>
+          <PendingAction size="sm" variant="glass" iconLeft={<I.Alert size={14} />}>Escalate</PendingAction>
+          <PendingAction size="sm" variant="primary" iconLeft={<I.Check size={14} />}>Resolve</PendingAction>
+          <PendingNote />
         </div>
       </div>
 
@@ -346,8 +347,8 @@ export default async function IncidentDetailPage({ params }: { params: Params })
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button variant="glass" size="sm" iconLeft={<I.Bell size={12} />}>Page</Button>
-              <Button variant="glass" size="sm" iconLeft={<I.Map size={12} />}>Track</Button>
+              <PendingAction variant="glass" size="sm" iconLeft={<I.Bell size={12} />}>Page</PendingAction>
+              <PendingAction variant="glass" size="sm" iconLeft={<I.Map size={12} />}>Track</PendingAction>
             </div>
           </GlassCard>
 

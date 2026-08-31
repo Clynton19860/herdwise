@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
-import { Button } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
+import { PendingAction } from "@/components/ui/pending-action";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Ring } from "@/components/charts/ring";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
@@ -36,12 +36,12 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
           Back to registry
         </Link>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <Button size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>
+          <PendingAction size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>
             Subscribe
-          </Button>
-          <Button size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
+          </PendingAction>
+          <PendingAction size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
             New health record
-          </Button>
+          </PendingAction>
         </div>
       </div>
 

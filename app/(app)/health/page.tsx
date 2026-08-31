@@ -1,8 +1,8 @@
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
+import { PendingAction } from "@/components/ui/pending-action";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Ring } from "@/components/charts/ring";
 import { StatusBadge } from "@/components/app/indicators";
@@ -73,9 +73,9 @@ export default async function HealthPage() {
               <h3 className="text-base font-semibold tracking-tight">Vaccination schedule</h3>
               <p className="text-xs text-white/55">Animals due in the next 30 days</p>
             </div>
-            <Button size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
+            <PendingAction size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
               Schedule clinic
-            </Button>
+            </PendingAction>
           </div>
 
           <ul className="space-y-2">

@@ -1,29 +1,43 @@
 import Link from "next/link";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
-import { Button, LinkButton } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
 import { getAnimals, getOwners } from "@/lib/db";
+import type { Animal } from "@/lib/types";
 
-export default async function LivestockPage() {
-  const [animals, owners] = await Promise.all([getAnimals(), getOwners()]);
+/**
+ * The filter tabs used to be buttons with no handler on a server component, so
+ * every one of them showed the whole register. They are links carrying the
+ * choice in the URL now, which keeps the page server-rendered, makes a filtered
+ * view shareable, and means the back button behaves.
+ */
+type Params = Promise<{ view?: string }>;
+
+const FILTERS = [
+  { label: "All",         match: () => true },
+  { label: "Cattle",      match: (a: Animal) => a.species === "Cattle" },
+  { label: "Goats",       match: (a: Animal) => a.species === "Goat" },
+  { label: "Sheep",       match: (a: Animal) => a.species === "Sheep" },
+  { label: "Donkey",      match: (a: Animal) => a.species === "Donkey" },
+  { label: "Alerts",      match: (a: Animal) => a.status === "Alert" },
+  { label: "Quarantined", match: (a: Animal) => a.status === "Quarantined" },
+];
+
+export default async function LivestockPage({ searchParams }: { searchParams: Params }) {
+  const { view } = await searchParams;
+  const [all, owners] = await Promise.all([getAnimals(), getOwners()]);
   const findOwner = (id: string) => owners.find((o) => o.id === id);
 
-  const speciesCounts = animals.reduce<Record<string, number>>((acc, a) => {
-    acc[a.species] = (acc[a.species] ?? 0) + 1;
-    return acc;
-  }, {});
+  const active = FILTERS.find((f) => f.label === view) ?? FILTERS[0];
+  const animals = all.filter(active.match);
 
-  const filters = [
-    { label: "All",         count: animals.length, active: true },
-    { label: "Cattle",      count: speciesCounts.Cattle ?? 0 },
-    { label: "Goats",       count: speciesCounts.Goat ?? 0 },
-    { label: "Sheep",       count: speciesCounts.Sheep ?? 0 },
-    { label: "Donkey",      count: speciesCounts.Donkey ?? 0 },
-    { label: "Alerts",      count: animals.filter((a) => a.status === "Alert").length },
-    { label: "Quarantined", count: animals.filter((a) => a.status === "Quarantined").length },
-  ];
+  const filters = FILTERS.map((f) => ({
+    label: f.label,
+    count: all.filter(f.match).length,
+    active: f.label === active.label,
+  }));
   return (
     <>
       <Topbar
@@ -38,8 +52,10 @@ export default async function LivestockPage() {
       <GlassCard className="p-3 flex flex-wrap items-center gap-2 sticky top-5 z-10">
         <div className="flex items-center gap-2 flex-wrap">
           {filters.map((f) => (
-            <button
+            <Link
               key={f.label}
+              href={f.label === "All" ? "/livestock" : `/livestock?view=${encodeURIComponent(f.label)}`}
+              aria-current={f.active ? "page" : undefined}
               className={`h-9 px-3.5 rounded-2xl text-sm font-medium transition-colors flex items-center gap-2
                 ${f.active
                   ? "glass text-white"
@@ -49,14 +65,11 @@ export default async function LivestockPage() {
               <span className="text-[10px] font-mono px-1.5 rounded-md bg-white/10 text-white/70">
                 {f.count}
               </span>
-            </button>
+            </Link>
           ))}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="glass" iconLeft={<I.Filter size={14} />}>
-            More filters
-          </Button>
           <LinkButton href="/livestock/new" size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
             Register animal
           </LinkButton>
@@ -64,6 +77,20 @@ export default async function LivestockPage() {
       </GlassCard>
 
       {/* ===== Animal grid ===== */}
+      {animals.length === 0 && (
+        <GlassCard className="p-10 text-center">
+          <I.Cow size={26} className="mx-auto text-white/35" />
+          <div className="mt-3 text-sm">
+            {all.length === 0 ? "No animals registered yet" : `No animals under “${active.label}”`}
+          </div>
+          <p className="mt-1 text-xs text-white/55">
+            {all.length === 0
+              ? "Register an animal to start tracking it."
+              : "Try another filter, or clear it to see the whole register."}
+          </p>
+        </GlassCard>
+      )}
+
       <div className="grid-stagger grid md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
         {animals.map((a) => {
           const owner = findOwner(a.ownerId);

@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Button, LinkButton } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
+import { PendingAction } from "@/components/ui/pending-action";
 import { ScopedMap } from "@/components/app/scoped-map";
 import { Ring } from "@/components/charts/ring";
 import { Sparkline } from "@/components/charts/sparkline";
@@ -50,12 +51,12 @@ export default async function OwnerDetailPage({ params }: { params: Params }) {
           Back to owners directory
         </Link>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <Button size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>
+          <PendingAction size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>
             Send notice
-          </Button>
-          <Button size="sm" variant="glass" iconLeft={<I.Stethoscope size={14} />}>
+          </PendingAction>
+          <PendingAction size="sm" variant="glass" iconLeft={<I.Stethoscope size={14} />}>
             Schedule visit
-          </Button>
+          </PendingAction>
           <LinkButton href="/livestock/new" size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
             Register animal
           </LinkButton>

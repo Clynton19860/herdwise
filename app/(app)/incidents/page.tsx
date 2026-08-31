@@ -2,26 +2,44 @@ import Link from "next/link";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Button, LinkButton } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
 import {
   SeverityBadge,
   IncidentStatusBadge,
 } from "@/components/app/indicators";
 import { getAnimals, getIncidents, getOwners } from "@/lib/db";
+import type { Incident } from "@/lib/types";
 
-export default async function IncidentsPage() {
-  const [incidents, animals, owners] = await Promise.all([
+/** Same pattern as the registry: the choice lives in the URL, so the page stays
+ *  server-rendered and a filtered view can be shared or bookmarked. */
+type Params = Promise<{ view?: string }>;
+
+const TABS = [
+  { label: "All",      match: () => true },
+  { label: "Active",   match: (i: Incident) => i.status === "Open" || i.status === "In progress" || i.status === "Escalated" },
+  { label: "Critical", match: (i: Incident) => i.severity === "Critical" },
+  { label: "Theft",    match: (i: Incident) => i.type === "Theft" },
+  { label: "Boundary", match: (i: Incident) => i.type === "Boundary breach" },
+  { label: "Disease",  match: (i: Incident) => i.type === "Disease alert" },
+];
+
+export default async function IncidentsPage({ searchParams }: { searchParams: Params }) {
+  const { view } = await searchParams;
+  const [all, animals, owners] = await Promise.all([
     getIncidents(), getAnimals(), getOwners(),
   ]);
+  const activeTab = TABS.find((t) => t.label === view) ?? TABS[0];
+  const incidents = all.filter(activeTab.match);
   const findAnimal = (id: string) => animals.find((a) => a.id === id);
   const findOwner = (id: string) => owners.find((o) => o.id === id);
 
+  // The summary tiles describe the whole register, not the current filter.
   const summary = {
-    open: incidents.filter((i) => i.status === "Open").length,
-    inProgress: incidents.filter((i) => i.status === "In progress").length,
-    escalated: incidents.filter((i) => i.status === "Escalated").length,
-    resolved: incidents.filter((i) => i.status === "Resolved").length,
+    open: all.filter((i) => i.status === "Open").length,
+    inProgress: all.filter((i) => i.status === "In progress").length,
+    escalated: all.filter((i) => i.status === "Escalated").length,
+    resolved: all.filter((i) => i.status === "Resolved").length,
   };
   return (
     <>
@@ -38,15 +56,17 @@ export default async function IncidentsPage() {
       </div>
 
       <GlassCard className="p-3 flex flex-wrap items-center gap-2">
-        <Tab label="All" count={incidents.length} active />
-        <Tab label="Active" count={summary.open + summary.inProgress + summary.escalated} />
-        <Tab label="Critical" count={incidents.filter((i) => i.severity === "Critical").length} />
-        <Tab label="Theft" count={incidents.filter((i) => i.type === "Theft").length} />
-        <Tab label="Boundary" count={incidents.filter((i) => i.type === "Boundary breach").length} />
-        <Tab label="Disease" count={incidents.filter((i) => i.type === "Disease alert").length} />
+        {TABS.map((t) => (
+          <Tab
+            key={t.label}
+            label={t.label}
+            count={all.filter(t.match).length}
+            href={t.label === "All" ? "/incidents" : `/incidents?view=${encodeURIComponent(t.label)}`}
+            active={t.label === activeTab.label}
+          />
+        ))}
 
         <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="glass" iconLeft={<I.Filter size={14} />}>Filters</Button>
           <LinkButton href="/incidents/new" size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>Report incident</LinkButton>
         </div>
       </GlassCard>
@@ -72,7 +92,9 @@ export default async function IncidentsPage() {
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center">
                     <I.Check size={24} className="mx-auto text-emerald-300" />
-                    <div className="mt-3 text-sm">No incidents reported</div>
+                    <div className="mt-3 text-sm">
+                      {all.length === 0 ? "No incidents reported" : `No incidents under “${activeTab.label}”`}
+                    </div>
                     <p className="mt-1 text-xs text-white/55">
                       Breaches, thefts and injuries raised by officers appear here.
                     </p>
@@ -185,9 +207,13 @@ function Summary({
   );
 }
 
-function Tab({ label, count, active }: { label: string; count: number; active?: boolean }) {
+function Tab({
+  label, count, href, active,
+}: { label: string; count: number; href: string; active?: boolean }) {
   return (
-    <button
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
       className={`h-9 px-3.5 rounded-2xl text-sm font-medium transition-colors flex items-center gap-2
         ${active ? "glass text-white" : "text-white/65 hover:text-white hover:bg-white/6"}`}
     >
@@ -195,6 +221,6 @@ function Tab({ label, count, active }: { label: string; count: number; active?: 
       <span className="text-[10px] font-mono px-1.5 rounded-md bg-white/10 text-white/70">
         {count}
       </span>
-    </button>
+    </Link>
   );
 }

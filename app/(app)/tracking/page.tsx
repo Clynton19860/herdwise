@@ -1,8 +1,8 @@
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
+import { PendingAction } from "@/components/ui/pending-action";
 import { FieldMap } from "@/components/map/field-map";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
 import { getAnimals, getGeofences, getMapAnimals, getMapParcels, getRecentActivity } from "@/lib/db";
@@ -66,7 +66,7 @@ export default async function TrackingPage() {
           <GlassCard className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold tracking-tight">Watchlist</h3>
-              <Button size="sm" variant="ghost">Manage</Button>
+              <PendingAction size="sm" variant="ghost">Manage</PendingAction>
             </div>
             <ul className="space-y-2 max-h-[280px] overflow-y-auto pretty-scroll pr-1">
               {animals

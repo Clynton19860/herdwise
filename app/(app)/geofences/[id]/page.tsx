@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
+import { PendingAction, PendingNote } from "@/components/ui/pending-action";
 import { FieldMap } from "@/components/map/field-map";
 import { Ring } from "@/components/charts/ring";
 import { Sparkline } from "@/components/charts/sparkline";
@@ -84,9 +84,10 @@ export default async function GeofenceDetailPage({ params }: { params: Params })
           Back to zones
         </Link>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <Button size="sm" variant="glass" iconLeft={<I.Layers size={14} />}>Duplicate</Button>
-          <Button size="sm" variant="glass" iconLeft={<I.Settings size={14} />}>Edit rules</Button>
-          <Button size="sm" variant="danger" iconLeft={<I.X size={14} />}>Archive zone</Button>
+          <PendingAction size="sm" variant="glass" iconLeft={<I.Layers size={14} />}>Duplicate</PendingAction>
+          <PendingAction size="sm" variant="glass" iconLeft={<I.Settings size={14} />}>Edit rules</PendingAction>
+          <PendingAction size="sm" variant="danger" iconLeft={<I.X size={14} />}>Archive zone</PendingAction>
+          <PendingNote />
         </div>
       </div>
 
