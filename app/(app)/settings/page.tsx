@@ -2,7 +2,9 @@ import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { I } from "@/components/ui/icon";
-import { getGatewayStatus, isDatabaseConfigured } from "@/lib/db";
+import { getGatewayStatus, getStaff, getWards, isDatabaseConfigured } from "@/lib/db";
+import { currentStaff } from "@/lib/session";
+import { InviteStaff } from "@/components/settings/invite-staff";
 
 /**
  * This page states the platform's real posture.
@@ -20,6 +22,9 @@ import { getGatewayStatus, isDatabaseConfigured } from "@/lib/db";
 export default async function SettingsPage() {
   const dbReady = isDatabaseConfigured();
   const assistantReady = Boolean(process.env.ANTHROPIC_API_KEY);
+
+  const me = dbReady ? await currentStaff() : null;
+  const [team, wards] = dbReady ? await Promise.all([getStaff(), getWards()]) : [[], []];
 
   const { hoursSinceFix, live: gatewayLive } = dbReady
     ? await getGatewayStatus()
@@ -95,6 +100,45 @@ export default async function SettingsPage() {
           </ul>
         </GlassCard>
       </div>
+
+      <GlassCard className="p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold tracking-tight">People</h3>
+            <p className="text-xs text-white/55">
+              Who can sign in, and what they are allowed to do
+            </p>
+          </div>
+        </div>
+
+        <ul className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {team.map((t) => (
+            <li key={t.id} className="glass-thin rounded-2xl p-3 flex items-center gap-3">
+              <span className="h-9 w-9 rounded-xl bg-[linear-gradient(135deg,#00f5a0,#5be7ff)] text-emerald-950 text-xs font-semibold grid place-items-center shrink-0">
+                {t.name
+                  .replace(/^(Insp\.|Sgt\.|Dr\.|Mr\.|Mrs\.|Ms\.)\s*/i, "")
+                  .split(/\s+/)
+                  .map((w) => w[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm truncate">{t.name}</span>
+                <span className="block text-xs text-white/50 capitalize">{t.role}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        {me?.role === "admin" ? (
+          <InviteStaff wards={wards.map((w) => w.name)} />
+        ) : (
+          <p className="mt-4 text-xs text-white/45">
+            Only an administrator can add people.
+          </p>
+        )}
+      </GlassCard>
 
       <GlassCard className="p-6">
         <h3 className="text-base font-semibold tracking-tight">Notification channels</h3>

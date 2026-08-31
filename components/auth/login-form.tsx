@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { I } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
@@ -146,6 +147,15 @@ export function LoginForm({
             <Button type="submit" variant="primary" className="w-full" disabled={busy}>
               {busy ? "Checking…" : "Continue"}
             </Button>
+
+            <div className="flex items-center justify-between text-xs text-white/45 pt-1">
+              <Link href="/reset" className="hover:text-white/75 transition-colors">
+                Forgot your password?
+              </Link>
+              <Link href="/setup" className="hover:text-white/75 transition-colors">
+                Have an invitation?
+              </Link>
+            </div>
           </form>
         ) : (
           <form onSubmit={submitCode} className="space-y-4">

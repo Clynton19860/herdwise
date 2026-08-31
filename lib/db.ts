@@ -885,3 +885,32 @@ export async function touchLastLogin(staffId: string) {
     [asUuid(staffId)],
   );
 }
+
+/**
+ * Set a password after a verified code, and end every session that person had.
+ *
+ * The two happen together on purpose. Somebody resetting a password has usually
+ * lost control of it, so leaving their old sessions alive would defeat the
+ * reset.
+ */
+export async function setStaffPassword(staffId: string, passwordHash: string) {
+  await query(
+    `update staff set password_hash = $2 where auth_user_id = $1::uuid`,
+    [asUuid(staffId), passwordHash],
+  );
+  await query(`select bump_token_version($1::uuid)`, [asUuid(staffId)]);
+}
+
+/** Adds a colleague. They have no password until they complete the invitation. */
+export async function createStaff(opts: {
+  fullName: string; email: string; role: string; wardName?: string | null;
+}) {
+  const rows = await query<{ id: string }>(
+    `insert into staff (auth_user_id, full_name, role, ward_id, active, email)
+     values (gen_random_uuid(), $1, $2::app_role,
+             (select id from wards where name = $3), true, $4)
+     returning auth_user_id as id`,
+    [opts.fullName, opts.role, opts.wardName ?? null, opts.email.trim()],
+  );
+  return rows[0];
+}

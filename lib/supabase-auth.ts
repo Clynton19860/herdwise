@@ -44,10 +44,50 @@ export async function sendSignInCode(email: string): Promise<{ ok: boolean; reas
   return { ok: true };
 }
 
+/**
+ * Sends the branded password-reset code.
+ *
+ * Which Supabase call is made decides which template is sent — this one reaches
+ * `reset-password.html`, `sendSignInCode` reaches `magic-link.html`, and
+ * `sendInviteCode` reaches `sign-up.html`. They are not interchangeable.
+ */
+export async function sendResetCode(email: string): Promise<{ ok: boolean }> {
+  const { error } = await client().auth.resetPasswordForEmail(email);
+  if (error) {
+    console.error(`[auth] could not send reset code to ${email}: ${error.message}`);
+    return { ok: false };
+  }
+  return { ok: true };
+}
+
+/**
+ * Sends the branded account-setup code.
+ *
+ * `signUp` is what triggers the confirmation template. The password given here
+ * is random and immediately discarded: Supabase requires one, but this platform
+ * keeps its own hash in `staff`, and the person chooses that at the end of the
+ * flow. Nothing ever signs in with this value.
+ */
+export async function sendInviteCode(email: string): Promise<{ ok: boolean }> {
+  const { error } = await client().auth.signUp({
+    email,
+    password: `${crypto.randomUUID()}${crypto.randomUUID()}`,
+  });
+  if (error) {
+    console.error(`[auth] could not send invite to ${email}: ${error.message}`);
+    return { ok: false };
+  }
+  return { ok: true };
+}
+
 /** Checks a six-digit code. Returns true only if Supabase accepts it. */
-export async function checkSignInCode(email: string, token: string): Promise<boolean> {
+export async function checkSignInCode(
+  email: string,
+  token: string,
+  type: "email" | "recovery" | "signup" = "email",
+): Promise<boolean> {
   const supabase = client();
-  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+  const { data, error } = await supabase.auth.verifyOtp({ email, token, type });
   if (error || !data.session) return false;
   // The Supabase session has done its job. This app carries its own, so end
   // Supabase's rather than leaving a second live session behind.
