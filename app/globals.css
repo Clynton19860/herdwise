@@ -72,9 +72,22 @@
     min-height: 100%;
   }
 
+  /**
+   * Decorative blooms are positioned deliberately outside their containers
+   * (`-top-32 -right-32`), which widens the document and lets the page scroll
+   * sideways on a phone — 112px of empty space on the landing page.
+   *
+   * `clip` rather than `hidden`: `overflow: hidden` turns the element into a
+   * scroll container, which silently breaks `position: sticky` for anything
+   * inside it. `clip` cuts the overflow without that side effect.
+   */
+  html {
+    overflow-x: clip;
+  }
+
   body {
     position: relative;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   /* The aurora mesh — a moving, painterly backdrop that lives behind the glass */
@@ -253,6 +266,31 @@
     transition-duration: 0.001ms !important;
   }
   body::before { animation: none !important; }
+}
+
+/**
+ * Fail-safe for the staggered entrances.
+ *
+ * `.page-enter`, `.grid-stagger` and `.nav-stagger` set their children to
+ * `opacity: 0` and rely on an animation to reveal them, but the per-child delays
+ * stop at the 10th, 12th and 8th child. A child beyond that count never receives
+ * an animation and stays invisible for good — which looks like missing data
+ * rather than a CSS bug. Anything past the delay list still animates, just
+ * without an individual offset.
+ */
+.page-enter > *:nth-child(n + 11),
+.grid-stagger > *:nth-child(n + 13),
+.nav-stagger > *:nth-child(n + 9) {
+  animation-delay: 0.6s;
+}
+
+/* And if animations do not run at all — print, an unsupported engine, a paused
+   timeline — the content is still there to read. */
+@media (prefers-reduced-motion: reduce) {
+  .page-enter > *, .grid-stagger > *, .nav-stagger > * { opacity: 1; }
+}
+@media print {
+  .page-enter > *, .grid-stagger > *, .nav-stagger > * { opacity: 1 !important; animation: none !important; }
 }
 
 /* ---------- Core glass utilities ---------- */

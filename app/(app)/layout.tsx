@@ -26,7 +26,8 @@ export default async function AppLayout({
     <MobileNavProvider operator={operator}>
       <div className="flex min-h-dvh gap-4 lg:gap-5 p-3 sm:p-4 lg:p-5">
         <Sidebar operator={operator} />
-        <main className="page-enter flex-1 min-w-0 space-y-4 sm:space-y-5 lg:space-y-6">
+        {/* Bottom padding keeps the last card clear of the floating assistant. */}
+        <main className="page-enter flex-1 min-w-0 space-y-4 sm:space-y-5 lg:space-y-6 pb-24">
           {configured ? children : <DatabaseSetupNotice />}
         </main>
       </div>

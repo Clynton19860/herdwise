@@ -97,8 +97,9 @@ const DEVICE_LABEL: Record<string, DeviceType> = {
   other: "Ear Tag",
 };
 
-function monthsSince(date: string | Date | null): number {
-  if (!date) return 0;
+/** Null for an unrecorded birth date, so the UI can say "unknown" rather than "0 mo". */
+function monthsSince(date: string | Date | null): number | null {
+  if (!date) return null;
   const d = new Date(date);
   const now = new Date();
   return Math.max(0, (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth()));
@@ -193,7 +194,7 @@ function toAnimal(r: AnimalRow): Animal {
     breed: r.breed ?? "—",
     sex: (r.sex ? title(r.sex) : "Female") as Sex,
     ageMonths: monthsSince(r.birth_date),
-    weightKg: r.weight_kg ? Number(r.weight_kg) : 0,
+    weightKg: r.weight_kg != null ? Number(r.weight_kg) : null,
     color: r.colour ?? "—",
     status: title(r.status) as AnimalStatus,
     ownerId: r.owner_id,

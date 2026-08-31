@@ -305,6 +305,12 @@ export function AskHerdwise({
       <aside
         role="dialog"
         aria-label="Ask Herdwise"
+        // The panel is hidden with opacity and a transform, which leaves its
+        // controls in the tab order — a keyboard user lands in an invisible
+        // textarea. `inert` removes it from focus and the accessibility tree
+        // while it is closed, and `aria-hidden` keeps screen readers out too.
+        inert={!open}
+        aria-hidden={!open}
         className={`fixed z-50 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]
           bottom-3 right-3 top-3 sm:top-5 sm:bottom-5 sm:right-5
           w-[calc(100vw-1.5rem)] sm:w-[440px] md:w-[480px] lg:w-[520px] max-w-[560px]

@@ -20,8 +20,9 @@ export type Animal = {
   species: Species;
   breed: string;
   sex: Sex;
-  ageMonths: number;
-  weightKg: number;
+  /** Null when unrecorded — an unknown age is not an age of zero. */
+  ageMonths: number | null;
+  weightKg: number | null;
   color: string;
   status: AnimalStatus;
   ownerId: string;

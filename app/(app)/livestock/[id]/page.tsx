@@ -24,7 +24,7 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
     <>
       <Topbar
         title={animal.name ? `${animal.name} · ${animal.tag}` : animal.tag}
-        subtitle={`${animal.breed} · ${animal.species} · ${animal.sex} · ${animal.ageMonths} months`}
+        subtitle={[animal.breed, animal.species, animal.sex, animal.ageMonths != null ? `${animal.ageMonths} months` : null].filter((x) => x && x !== "—").join(" · ")}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -67,8 +67,8 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
 
           <dl className="mt-6 grid grid-cols-2 gap-3 text-sm">
             <Field label="Sex" value={animal.sex} />
-            <Field label="Age" value={`${animal.ageMonths} months`} />
-            <Field label="Weight" value={`${animal.weightKg} kg`} />
+            <Field label="Age" value={animal.ageMonths != null ? `${animal.ageMonths} months` : "Not recorded"} />
+            <Field label="Weight" value={animal.weightKg != null ? `${animal.weightKg} kg` : "Not recorded"} />
             <Field label="Registered" value={animal.registeredOn} />
           </dl>
 

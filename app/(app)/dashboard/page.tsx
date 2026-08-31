@@ -1,9 +1,9 @@
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Button, LinkButton } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
-import { MiniMap } from "@/components/marketing/mini-map";
+import { FieldMap } from "@/components/map/field-map";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Ring } from "@/components/charts/ring";
 import { Bars } from "@/components/charts/bars";
@@ -16,15 +16,17 @@ import {
   getOwners,
   getPlatformStats,
   getRecentActivity,
+  getMapAnimals,
+  getMapParcels,
   getTrendSeries,
   getWards,
 } from "@/lib/db";
 
 export default async function DashboardPage() {
-  const [animals, geofences, incidents, owners, platformStats, recentActivity, trendSeries, composition, wards] =
+  const [animals, geofences, incidents, owners, platformStats, recentActivity, trendSeries, composition, wards, mapAnimals, mapParcels] =
     await Promise.all([
       getAnimals(), getGeofences(), getIncidents(), getOwners(),
-      getPlatformStats(), getRecentActivity(), getTrendSeries(), getComposition(), getWards(),
+      getPlatformStats(), getRecentActivity(), getTrendSeries(), getComposition(), getWards(), getMapAnimals(), getMapParcels(),
     ]);
 
   // Name the ward the pilot actually runs in. The subtitle used to claim coverage
@@ -39,6 +41,13 @@ export default async function DashboardPage() {
   const openIncidents = incidents.filter(
     (i) => i.status === "Open" || i.status === "In progress" || i.status === "Escalated"
   ).length;
+
+  const needsAttention = animals.filter(
+    (a) =>
+      a.status !== "Healthy" ||
+      (a.device.battery > 0 && a.device.battery < 25) ||
+      a.device.lastSyncMin > 120,
+  );
 
   const reportingPct = platformStats.registered
     ? Math.round((platformStats.liveDevices / platformStats.registered) * 100)
@@ -101,16 +110,18 @@ export default async function DashboardPage() {
               <Badge tone="veld" dot>Streaming</Badge>
             </div>
             <div className="flex items-center gap-2 ml-auto">
-              <Button variant="glass" size="sm" iconLeft={<I.Filter size={14} />}>
-                <span className="hidden sm:inline">Filters</span>
-              </Button>
               <LinkButton href="/tracking" variant="primary" size="sm" iconRight={<I.ArrowRight size={14} />}>
                 <span className="hidden sm:inline">Open full map</span>
                 <span className="sm:hidden">Map</span>
               </LinkButton>
             </div>
           </div>
-          <MiniMap animals={animals} zones={geofences} className="h-[300px] sm:h-[360px] lg:h-[420px]" />
+          {/* The same map component the tracking page uses. This panel used to be an
+              abstract radar drawn from percentage coordinates — the dashboard's
+              largest element, and its least truthful. */}
+          <div className="h-[300px] sm:h-[360px] lg:h-[420px]">
+            <FieldMap animals={mapAnimals} parcels={mapParcels} className="h-full w-full" />
+          </div>
 
           {/* Legend / zone counts */}
           <div className="mt-5 grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -231,17 +242,26 @@ export default async function DashboardPage() {
 
       {/* ===== Critical / Watchlist ===== */}
       <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
-        <GlassCard className="lg:col-span-2 p-6 lg:p-7">
-          <div className="flex items-center justify-between mb-4">
-            <div>
+        <GlassCard className="lg:col-span-2 min-w-0 p-6 lg:p-7">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="min-w-0">
               <h3 className="text-base font-semibold tracking-tight">Critical watchlist</h3>
-              <p className="text-xs text-white/55">Animals requiring attention now</p>
+              <p className="text-xs text-white/55">Health, battery or reporting problems</p>
             </div>
             <LinkButton href="/livestock" variant="ghost" size="sm" iconRight={<I.ArrowRight size={14} />}>
               See all
             </LinkButton>
           </div>
 
+          {needsAttention.length === 0 ? (
+            <div className="glass-thin rounded-2xl p-8 text-center">
+              <I.Check size={24} className="mx-auto text-emerald-300" />
+              <div className="mt-3 text-sm">Nothing needs attention</div>
+              <p className="mt-1 text-xs text-white/55">
+                Every tracked animal is healthy and inside its allocation.
+              </p>
+            </div>
+          ) : (
           <div className="overflow-x-auto pretty-scroll -mx-2">
             <table className="w-full text-sm min-w-[640px]">
               <thead>
@@ -255,8 +275,7 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {animals
-                  .filter((a) => a.status !== "Healthy")
+                {needsAttention
                   .map((a) => (
                     <tr
                       key={a.id}
@@ -279,6 +298,7 @@ export default async function DashboardPage() {
               </tbody>
             </table>
           </div>
+          )}
         </GlassCard>
 
         <GlassCard className="p-6 lg:p-7">

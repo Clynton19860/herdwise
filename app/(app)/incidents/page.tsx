@@ -67,6 +67,18 @@ export default async function IncidentsPage() {
               </tr>
             </thead>
             <tbody>
+              {/* An empty register showed seven column headings above blank space. */}
+              {incidents.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center">
+                    <I.Check size={24} className="mx-auto text-emerald-300" />
+                    <div className="mt-3 text-sm">No incidents reported</div>
+                    <p className="mt-1 text-xs text-white/55">
+                      Breaches, thefts and injuries raised by officers appear here.
+                    </p>
+                  </td>
+                </tr>
+              )}
               {incidents.map((i) => {
                 const a = i.animalId ? findAnimal(i.animalId) : undefined;
                 const o = i.ownerId ? findOwner(i.ownerId) : undefined;

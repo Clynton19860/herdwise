@@ -28,7 +28,10 @@ export default async function LivestockPage() {
     <>
       <Topbar
         title="Livestock registry"
-        subtitle={`${animals.length} animals tracked in the pilot — ${owners.length} farmers`}
+        subtitle={
+          `${animals.length} ${animals.length === 1 ? "animal" : "animals"} tracked in the pilot` +
+          ` — ${owners.length} ${owners.length === 1 ? "farmer" : "farmers"}`
+        }
       />
 
       {/* ===== Action bar ===== */}
@@ -90,19 +93,23 @@ export default async function LivestockPage() {
               <dl className="mt-6 grid grid-cols-2 gap-3 text-sm">
                 <Field label="Breed" value={a.breed} />
                 <Field label="Sex" value={a.sex} />
-                <Field label="Age" value={`${a.ageMonths} mo`} />
-                <Field label="Weight" value={`${a.weightKg} kg`} />
+                <Field label="Age" value={a.ageMonths != null ? `${a.ageMonths} mo` : "—"} />
+                <Field label="Weight" value={a.weightKg != null ? `${a.weightKg} kg` : "—"} />
                 <Field label="Zone" value={a.location.zone} />
                 <Field label="Device" value={a.device.type} />
               </dl>
 
               <div className="mt-6 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 text-xs text-white/55">
-                  <div className="flex items-center gap-1.5">
-                    <I.Wifi size={14} />
+                  <div className="flex items-center gap-1.5" title={`Signal ${a.device.signal}%`}>
+                    <I.Wifi size={14} aria-hidden />
+                    <span className="sr-only">Signal</span>
                     {a.device.signal}%
                   </div>
-                  <BatteryBar value={a.device.battery} />
+                  <div className="flex items-center gap-1.5" title={`Battery ${a.device.battery}%`}>
+                    <span className="sr-only">Battery</span>
+                    <BatteryBar value={a.device.battery} />
+                  </div>
                 </div>
                 <Link
                   href={`/livestock/${a.id}`}
