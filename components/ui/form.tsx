@@ -190,13 +190,18 @@ export function RadioCardGroup({
     : columns === 4 ? "md:grid-cols-2 lg:grid-cols-4"
     : "md:grid-cols-2 lg:grid-cols-3";
   return (
-    <div className={`grid grid-cols-1 ${cols} gap-3 ${className}`}>
+    // Styled buttons carry no meaning on their own: a sighted user sees which
+    // card is chosen, a screen reader user is told only "button". The radiogroup
+    // roles are what make the selection announceable.
+    <div role="radiogroup" className={`grid grid-cols-1 ${cols} gap-3 ${className}`}>
       {options.map((opt) => {
         const selected = opt.value === value;
         return (
           <button
             key={opt.value}
             type="button"
+            role="radio"
+            aria-checked={selected}
             onClick={() => onChange(opt.value)}
             className={`group relative text-left p-4 rounded-2xl transition-all duration-300
               ${selected
@@ -258,6 +263,8 @@ export function Checkbox({
   return (
     <button
       type="button"
+      role="checkbox"
+      aria-checked={checked}
       onClick={() => onChange(!checked)}
       className="flex items-start gap-3 text-left w-full glass-thin rounded-2xl p-3 transition-all hover:bg-white/6"
     >
@@ -293,6 +300,9 @@ export function Switch({
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
       onClick={() => onChange(!checked)}
       className="inline-flex items-center gap-2 text-sm"
     >
@@ -357,6 +367,7 @@ export function SearchPicker<T>({
             <button
               key={getId(it)}
               type="button"
+              aria-pressed={Boolean(selected)}
               onClick={() => onChange(it)}
               className={`w-full text-left p-3.5 rounded-2xl transition-all flex items-center gap-3
                 ${selected
@@ -403,6 +414,8 @@ export function ChipGroup({
           <button
             key={o.value}
             type="button"
+            // Multi-select, so each chip is independently on or off.
+            aria-pressed={on}
             onClick={() =>
               onChange(on ? values.filter((v) => v !== o.value) : [...values, o.value])
             }

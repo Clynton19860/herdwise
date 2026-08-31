@@ -109,6 +109,7 @@ export function Topbar({
             onChange={(e) => setQ(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
+            aria-label="Search animals, owners, zones and incidents"
             placeholder="Search animals, owners, tags…"
             className="bg-transparent outline-none text-sm placeholder:text-white/40 flex-1 min-w-0"
           />
@@ -209,6 +210,7 @@ export function Topbar({
                 autoFocus
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
+                aria-label="Search animals, owners, zones and incidents"
                 placeholder="Search animals, owners, tags…"
                 className="bg-transparent outline-none text-base placeholder:text-white/40 flex-1 min-w-0"
               />
