@@ -1,4 +1,5 @@
 import { search } from "@/lib/db";
+import { requireStaff, unauthorized } from "@/lib/api-auth";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 /** Backs the ⌘K field, which previously accepted input and did nothing with it. */
 export async function GET(req: Request) {
+  if (!(await requireStaff(req))) return unauthorized();
   const limit = rateLimit(callerKey(req), { limit: 60, windowSeconds: 60 });
   if (!limit.ok) return Response.json([], { status: 429 });
 

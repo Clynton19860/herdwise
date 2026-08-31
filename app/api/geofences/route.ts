@@ -1,5 +1,6 @@
 import { createGeofence } from "@/lib/db";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
+import { requireStaff, unauthorized } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,8 @@ export const dynamic = "force-dynamic";
 const MAX_VERTICES = 500;
 
 export async function POST(req: Request) {
+  if (!(await requireStaff(req))) return unauthorized();
+
   const limit = rateLimit(callerKey(req), { limit: 12, windowSeconds: 60 });
   if (!limit.ok) {
     return Response.json(

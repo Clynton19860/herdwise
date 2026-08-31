@@ -63,13 +63,17 @@ export function Sidebar({ operator }: { operator?: Operator | null }) {
     }
   }, [collapsed, hydrated]);
 
-  const handleSignOut = () => {
+  // Clears the session cookie server-side. POST, so a prefetch or a stray link
+  // cannot sign somebody out.
+  const handleSignOut = async () => {
     try {
+      await fetch("/api/auth/logout", { method: "POST" });
       window.localStorage.removeItem(STORAGE_KEY);
     } catch {
-      // ignore
+      // Signing out locally still matters if the request failed.
     }
-    router.push("/");
+    router.push("/login");
+    router.refresh();
   };
 
   const width = collapsed ? "w-[88px]" : "w-72";

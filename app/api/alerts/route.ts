@@ -1,4 +1,5 @@
 import { getAnimals, getIncidents, getOpenBreaches } from "@/lib/db";
+import { requireStaff, unauthorized } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +12,9 @@ export const dynamic = "force-dynamic";
  * that is always on carries no information — and worse, it trains people to
  * ignore the one time it matters.
  */
-export async function GET() {
+export async function GET(req: Request) {
+  if (!(await requireStaff(req))) return unauthorized();
+
   try {
     const [breaches, incidents, animals] = await Promise.all([
       getOpenBreaches(), getIncidents(), getAnimals(),

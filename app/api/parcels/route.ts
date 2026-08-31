@@ -1,4 +1,5 @@
 import { createParcel, getMapParcels } from "@/lib/db";
+import { requireStaff, unauthorized } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +13,15 @@ type Body = { name?: string; tenure?: string; ring?: [number, number][] };
  * parcel cannot be forged from the client.
  */
 /** Existing allocations, so a new zone can be drawn in context. */
-export async function GET() {
+export async function GET(req: Request) {
+  if (!(await requireStaff(req))) return unauthorized();
+
   return Response.json(await getMapParcels(), { headers: { "cache-control": "no-store" } });
 }
 
 export async function POST(req: Request) {
+  if (!(await requireStaff(req))) return unauthorized();
+
   let body: Body;
   try {
     body = (await req.json()) as Body;

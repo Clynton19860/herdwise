@@ -2,7 +2,9 @@ import { Sidebar } from "@/components/app/sidebar";
 import { MobileNavProvider } from "@/components/app/mobile-nav";
 import { AskHerdwise } from "@/components/ai/ask-herdwise";
 import { DatabaseSetupNotice } from "@/components/app/db-setup-notice";
-import { getAssistantContext, getOperator, isDatabaseConfigured } from "@/lib/db";
+import { redirect } from "next/navigation";
+import { getAssistantContext, isDatabaseConfigured } from "@/lib/db";
+import { currentStaff } from "@/lib/session";
 
 /**
  * Everything under this group reads live telemetry, so nothing here can be
@@ -15,12 +17,35 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // The shell shows a real staff row and the assistant offers suggestions that
-  // name real records — both are read here so nothing downstream invents them.
   const configured = isDatabaseConfigured();
-  const [operator, assistant] = configured
-    ? await Promise.all([getOperator(), getAssistantContext()])
-    : [null, { tag: null, ward: null }];
+
+  /**
+   * The real guard. `proxy.ts` only checks that a cookie is present, which is
+   * cheap and runs at the edge; this verifies the signature, that the account is
+   * still active, and that the session has not been revoked. Everything below
+   * reads live data, so it must not render for a visitor who is not signed in.
+   */
+  const staff = configured ? await currentStaff() : null;
+  if (configured && !staff) redirect("/login");
+
+  const operator = staff
+    ? {
+        name: staff.fullName,
+        role: staff.role,
+        ward: staff.ward,
+        initials: staff.fullName
+          .replace(/^(Insp\.|Sgt\.|Dr\.|Mr\.|Mrs\.|Ms\.)\s*/i, "")
+          .split(/\s+/)
+          .map((w) => w[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase(),
+      }
+    : null;
+
+  const assistant = configured
+    ? await getAssistantContext()
+    : { tag: null, ward: null };
 
   return (
     <MobileNavProvider operator={operator}>

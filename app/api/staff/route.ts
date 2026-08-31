@@ -1,4 +1,5 @@
 import { getStaff } from "@/lib/db";
+import { requireStaff, unauthorized } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +10,9 @@ export const dynamic = "force-dynamic";
  * The report form used to offer five officers by name — none of whom had a staff
  * row — so an incident could be assigned to somebody who does not exist.
  */
-export async function GET() {
+export async function GET(req: Request) {
+  if (!(await requireStaff(req))) return unauthorized();
+
   try {
     return Response.json(await getStaff());
   } catch {

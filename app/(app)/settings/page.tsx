@@ -84,8 +84,10 @@ export default async function SettingsPage() {
           <p className="text-xs text-white/55">Authentication, encryption, audit</p>
 
           <ul className="mt-4 space-y-1">
-            <Posture label="Authentication" state="off" note="Not built yet — every page is public" />
-            <Posture label="Row-level security" state="partial" note="Policies written; anonymous read enabled for the pilot" />
+            <Posture label="Authentication" state="on" note="Password, then a six-digit code. Sessions last 12 hours" />
+            <Posture label="Anonymous access" state="on" note="Revoked — the public key can no longer read any table" />
+            <Posture label="Row-level security" state="partial" note="Policies written; the application role still bypasses them" />
+            <Posture label="Code delivery" state="off" note="No mail provider connected — codes are written to the server log" />
             <Posture label="Database transport" state="on" note="TLS with a pinned root certificate" />
             <Posture label="Ear tag transport" state="off" note="The HCS048 protocol is plaintext TCP — no TLS available" />
             <Posture label="Device identity" state="partial" note="IMEI only; the protocol offers nothing to rotate" />

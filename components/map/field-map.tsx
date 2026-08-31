@@ -341,6 +341,26 @@ export function FieldMap({
 
   /* ------------------------------------------------ realtime */
 
+  /**
+   * Two ways to stay current, because they fail differently.
+   *
+   * Realtime is the fast path — the database pushes and the map updates within a
+   * second. But it runs on the anonymous Supabase key, and now that the tables
+   * are no longer readable anonymously it will simply not fire. Polling the
+   * app's own authenticated endpoint is the one that always works, so it is the
+   * floor rather than the optimisation; a tag reports every couple of minutes,
+   * so thirty seconds is well inside the useful resolution.
+   */
+  useEffect(() => {
+    const tick = setInterval(() => {
+      void fetch("/api/map/animals", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((rows) => { if (rows) setAnimals(rows); })
+        .catch(() => {});
+    }, 30_000);
+    return () => clearInterval(tick);
+  }, []);
+
   useEffect(() => {
     const client = supabase;
     if (!realtimeEnabled || !client) return;

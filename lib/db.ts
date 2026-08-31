@@ -706,8 +706,9 @@ export async function getDeviceDiagnostics(): Promise<
 /** Staff who can be assigned work, ordered with field officers first. */
 export async function getStaff(): Promise<{ id: string; name: string; role: string }[]> {
   const rows = await query<{ id: string; full_name: string; role: string }>(
-    `select id, full_name, role::text as role
+    `select auth_user_id as id, full_name, role::text as role
        from staff
+      where active
       order by case role::text when 'officer' then 0 when 'vet' then 1 else 2 end, full_name`);
   return rows.map((r) => ({ id: r.id, name: r.full_name, role: r.role }));
 }
@@ -828,4 +829,79 @@ export async function search(term: string): Promise<SearchHit[]> {
         from incidents i where i.ref ilike $1 limit 5)`,
     [like]);
   return rows;
+}
+
+/* ------------------------------------------------------------------ auth */
+
+export type StaffAccount = {
+  id: string;
+  fullName: string;
+  role: string;
+  ward: string | null;
+  passwordHash: string | null;
+  tokenVersion: number;
+  active: boolean;
+};
+
+const STAFF_ACCOUNT_SQL = `
+  select s.auth_user_id as id, s.full_name, s.role::text as role, w.name as ward,
+         s.password_hash, s.token_version, s.active, s.email
+    from staff s left join wards w on w.id = s.ward_id`;
+
+type StaffAccountRow = {
+  id: string; full_name: string; role: string; ward: string | null;
+  password_hash: string | null; token_version: number; active: boolean; email: string | null;
+};
+
+const toAccount = (r: StaffAccountRow): StaffAccount => ({
+  id: r.id, fullName: r.full_name, role: r.role, ward: r.ward,
+  passwordHash: r.password_hash, tokenVersion: Number(r.token_version), active: r.active,
+});
+
+/** Case-insensitive: nobody remembers whether they registered with a capital. */
+export async function getStaffByEmail(email: string): Promise<StaffAccount | null> {
+  const rows = await query<StaffAccountRow>(
+    `${STAFF_ACCOUNT_SQL} where lower(s.email) = lower($1)`, [email.trim()]);
+  return rows[0] ? toAccount(rows[0]) : null;
+}
+
+export async function getStaffById(id: string): Promise<StaffAccount | null> {
+  const rows = await query<StaffAccountRow>(
+    `${STAFF_ACCOUNT_SQL} where s.auth_user_id = $1::uuid`, [asUuid(id)]);
+  return rows[0] ? toAccount(rows[0]) : null;
+}
+
+/**
+ * Issue a code, replacing any still outstanding for that person.
+ *
+ * Superseding matters: with several live codes at once, an attacker gets several
+ * chances at the same account and the attempt limit means proportionally less.
+ */
+export async function issueLoginCode(staffId: string, codeHash: string, ttlMinutes: number) {
+  await query(`select prune_login_codes()`);
+  await query(
+    `update login_codes set consumed_at = now()
+      where staff_id = $1::uuid and consumed_at is null`, [asUuid(staffId)]);
+  const rows = await query<{ id: string }>(
+    `insert into login_codes (staff_id, code_hash, expires_at)
+     values ($1::uuid, $2, now() + make_interval(mins => $3))
+     returning id`, [asUuid(staffId), codeHash, ttlMinutes]);
+  return rows[0].id;
+}
+
+export async function getLiveLoginCode(staffId: string) {
+  const rows = await query<{ id: string; code_hash: string; attempts: number }>(
+    `select id, code_hash, attempts from login_codes
+      where staff_id = $1::uuid and consumed_at is null and expires_at > now()
+      order by created_at desc limit 1`, [asUuid(staffId)]);
+  return rows[0] ?? null;
+}
+
+export async function recordCodeAttempt(codeId: string) {
+  await query(`update login_codes set attempts = attempts + 1 where id = $1::uuid`, [asUuid(codeId)]);
+}
+
+export async function consumeLoginCode(codeId: string, staffId: string) {
+  await query(`update login_codes set consumed_at = now() where id = $1::uuid`, [asUuid(codeId)]);
+  await query(`update staff set last_login_at = now() where auth_user_id = $1::uuid`, [asUuid(staffId)]);
 }

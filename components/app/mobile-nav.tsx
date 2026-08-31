@@ -109,14 +109,16 @@ function MobileDrawer({ operator }: { operator?: Operator | null }) {
 
   const close = useCallback(() => setOpen(false), [setOpen]);
 
-  const signOut = () => {
+  const signOut = async () => {
     try {
+      await fetch("/api/auth/logout", { method: "POST" });
       window.localStorage.removeItem("herdwise.sidebar.collapsed");
     } catch {
-      // ignore
+      // Signing out locally still matters if the request failed.
     }
     close();
-    router.push("/");
+    router.push("/login");
+    router.refresh();
   };
 
   return (

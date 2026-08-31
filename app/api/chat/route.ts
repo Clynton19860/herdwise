@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { executeTool, systemPrompt, tools } from "@/lib/ai-tools";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
+import { requireStaff, unauthorized } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,10 @@ export async function POST(req: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return json({ error: "The assistant is not configured on this deployment." }, 503);
   }
+
+  // This endpoint spends money on every call, so it is the last one that should
+  // stay open now that there is a sign-in to check.
+  if (!(await requireStaff(req))) return unauthorized();
 
   const limit = rateLimit(callerKey(req), {
     limit: LIMIT_PER_WINDOW,
