@@ -1,15 +1,35 @@
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
+import { getGatewayStatus, isDatabaseConfigured } from "@/lib/db";
 
-export default function SettingsPage() {
+/**
+ * This page states the platform's real posture.
+ *
+ * It previously showed toggles reading "Multi-factor authentication: on" and
+ * "End-to-end encryption: on" for a deployment with no authentication of any
+ * kind, integrations to Apple Find My and mobile money that do not exist, and
+ * SMS, WhatsApp and Push channels marked On that have never sent a message. A
+ * settings page is where somebody checks a compliance claim, so it is the last
+ * place that can afford to flatter the build.
+ *
+ * The toggles are gone. A toggle implies something you can switch; these are
+ * observations, and several are deliberately not on yet.
+ */
+export default async function SettingsPage() {
+  const dbReady = isDatabaseConfigured();
+  const assistantReady = Boolean(process.env.ANTHROPIC_API_KEY);
+
+  const { hoursSinceFix, live: gatewayLive } = dbReady
+    ? await getGatewayStatus()
+    : { hoursSinceFix: null, live: false };
+
   return (
     <>
       <Topbar
         title="Settings"
-        subtitle="Workspace, integrations and platform configuration"
+        subtitle="What is connected, and what is not"
       />
 
       <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
@@ -30,11 +50,32 @@ export default function SettingsPage() {
           <p className="text-xs text-white/55">Connected services</p>
 
           <ul className="mt-4 space-y-2">
-            <Integration name="Supabase" status="Pending" tone="amber" icon={<I.Layers size={16} />} />
-            <Integration name="Apple Find My" status="Connected" tone="veld" icon={<I.Pin size={16} />} />
-            <Integration name="Mobile money" status="Connected" tone="veld" icon={<I.Tag size={16} />} />
+            <Integration
+              name="Supabase · PostgreSQL + PostGIS"
+              status={dbReady ? "Connected" : "Not configured"}
+              tone={dbReady ? "veld" : "amber"}
+              icon={<I.Layers size={16} />}
+            />
+            <Integration
+              name="Tag gateway · Azure"
+              status={
+                gatewayLive
+                  ? "Receiving"
+                  : hoursSinceFix != null
+                    ? `Quiet ${Math.round(hoursSinceFix)}h`
+                    : "No data"
+              }
+              tone={gatewayLive ? "veld" : "amber"}
+              icon={<I.Wifi size={16} />}
+            />
+            <Integration
+              name="Herdwise assistant · Claude"
+              status={assistantReady ? "Connected" : "Not configured"}
+              tone={assistantReady ? "veld" : "amber"}
+              icon={<I.Sparkle size={16} />}
+            />
             <Integration name="National Veterinary DB" status="Planned" tone="violet" icon={<I.Stethoscope size={16} />} />
-            <Integration name="GIS · ZimSurvey" status="Connected" tone="veld" icon={<I.Map size={16} />} />
+            <Integration name="Mobile money" status="Planned" tone="violet" icon={<I.Tag size={16} />} />
           </ul>
         </GlassCard>
 
@@ -42,28 +83,30 @@ export default function SettingsPage() {
           <h3 className="text-base font-semibold tracking-tight">Security</h3>
           <p className="text-xs text-white/55">Authentication, encryption, audit</p>
 
-          <ul className="mt-4 space-y-2">
-            <Toggle label="Multi-factor authentication" on />
-            <Toggle label="Row-level security (RLS)" on />
-            <Toggle label="End-to-end encryption" on />
-            <Toggle label="Tamper-resistant audit logs" on />
-            <Toggle label="Auto-rotate device tokens" />
+          <ul className="mt-4 space-y-1">
+            <Posture label="Authentication" state="off" note="Not built yet — every page is public" />
+            <Posture label="Row-level security" state="partial" note="Policies written; anonymous read enabled for the pilot" />
+            <Posture label="Database transport" state="on" note="TLS with a pinned root certificate" />
+            <Posture label="Ear tag transport" state="off" note="The HCS048 protocol is plaintext TCP — no TLS available" />
+            <Posture label="Device identity" state="partial" note="IMEI only; the protocol offers nothing to rotate" />
+            <Posture label="Incident trail" state="partial" note="Breaches and incidents are recorded, but not tamper-proof" />
           </ul>
-          <Button variant="glass" size="sm" className="mt-4 w-full" iconLeft={<I.Shield size={14} />}>
-            Open security review
-          </Button>
         </GlassCard>
       </div>
 
       <GlassCard className="p-6">
         <h3 className="text-base font-semibold tracking-tight">Notification channels</h3>
-        <p className="text-xs text-white/55">Where alerts are routed</p>
+        <p className="text-xs text-white/55">How an alert would reach a person</p>
 
-        <div className="mt-4 grid md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <Channel name="SMS" status="On" hint="Econet · ZWMOBILE" tone="veld" />
-          <Channel name="WhatsApp" status="On" hint="Cloud API" tone="veld" />
-          <Channel name="Push" status="On" hint="Mobile apps" tone="veld" />
-          <Channel name="Email" status="Off" hint="Optional" tone="neutral" />
+        <div className="mt-4 glass-thin rounded-2xl p-5 flex items-start gap-3">
+          <I.Alert size={16} className="text-amber-300 mt-0.5 shrink-0" />
+          <div className="text-sm text-white/75">
+            No delivery channel is connected yet. Breaches are recorded and shown in
+            the platform, but nothing is sent to an owner or officer outside it.
+            <span className="block mt-1 text-xs text-white/50">
+              SMS, WhatsApp and push were previously listed here as active. They were not.
+            </span>
+          </div>
         </div>
       </GlassCard>
     </>
@@ -104,43 +147,39 @@ function Integration({
   );
 }
 
-function Toggle({ label, on }: { label: string; on?: boolean }) {
-  return (
-    <li className="flex items-center justify-between py-1.5 text-sm">
-      <span>{label}</span>
-      <span
-        className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${
-          on ? "bg-emerald-400/60" : "bg-white/15"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
-            on ? "translate-x-4" : "translate-x-0.5"
-          }`}
-        />
-      </span>
-    </li>
-  );
-}
 
-function Channel({
-  name,
-  status,
-  hint,
-  tone,
+
+/**
+ * Three states, not two.
+ *
+ * The switches this replaces could only say on or off, so "row-level security"
+ * had to be shown as fully on when the truth is that the policies exist but are
+ * not enforced yet. Most of this platform's security posture is partial, and a
+ * binary control cannot express that without lying in one direction.
+ */
+function Posture({
+  label,
+  state,
+  note,
 }: {
-  name: string;
-  status: string;
-  hint: string;
-  tone: "veld" | "neutral";
+  label: string;
+  state: "on" | "partial" | "off";
+  note: string;
 }) {
+  const dot =
+    state === "on" ? "bg-emerald-400" : state === "partial" ? "bg-amber-300" : "bg-white/30";
+  const word = state === "on" ? "Active" : state === "partial" ? "Partial" : "Not active";
+  const tone = state === "on" ? "text-emerald-200" : state === "partial" ? "text-amber-200" : "text-white/50";
   return (
-    <div className="glass-thin rounded-2xl p-4">
-      <div className="flex items-center justify-between">
-        <span className="font-medium">{name}</span>
-        <Badge tone={tone}>{status}</Badge>
+    <li className="py-2 border-b border-white/5 last:border-b-0">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="flex items-center gap-2.5">
+          <span className={`h-1.5 w-1.5 rounded-full ${dot}`} aria-hidden />
+          {label}
+        </span>
+        <span className={`text-xs ${tone}`}>{word}</span>
       </div>
-      <div className="mt-1.5 text-xs text-white/55">{hint}</div>
-    </div>
+      <p className="mt-0.5 ml-4 text-xs text-white/50 leading-snug">{note}</p>
+    </li>
   );
 }

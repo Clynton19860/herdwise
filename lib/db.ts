@@ -777,3 +777,55 @@ export async function createGeofence({
   );
   return rows[0];
 }
+
+/**
+ * Whether the gateway is still delivering.
+ *
+ * The gateway runs on separate infrastructure, so the honest test of "is it up"
+ * is whether a position has arrived recently. Measured with the database's own
+ * clock rather than the renderer's — the tag's clock has already been shown to
+ * run hours fast, and a server component should not be reading wall time during
+ * render anyway.
+ */
+export async function getGatewayStatus(): Promise<{ hoursSinceFix: number | null; live: boolean }> {
+  const [row] = await query<{ hours: string | null }>(
+    `select extract(epoch from (now() - max(last_fix_at))) / 3600 as hours from devices`);
+  const hours = row?.hours != null ? Number(row.hours) : null;
+  return { hoursSinceFix: hours, live: hours != null && hours < 6 };
+}
+
+export type SearchHit = { type: string; label: string; sub: string | null; href: string };
+
+/**
+ * Cross-entity search for the ⌘K field.
+ *
+ * The field existed, tracked what you typed and did nothing with it. Matching is
+ * a case-insensitive prefix-or-contains over the identifiers people actually
+ * hold in their heads: an ear tag, an animal's name, an owner, a zone, an
+ * incident reference.
+ */
+export async function search(term: string): Promise<SearchHit[]> {
+  const q = term.trim();
+  if (q.length < 2) return [];
+  const like = `%${q}%`;
+
+  const rows = await query<{ type: string; label: string; sub: string | null; href: string }>(
+    `(select 'Animal' as type, a.tag || coalesce(' · ' || a.name, '') as label,
+             o.full_name as sub, '/livestock/' || a.id as href
+        from animals a left join owners o on o.id = a.owner_id
+       where a.tag ilike $1 or a.name ilike $1
+       limit 6)
+     union all
+     (select 'Owner', o.full_name, w.name, '/owners/' || o.id
+        from owners o left join wards w on w.id = o.ward_id
+       where o.full_name ilike $1 or o.phone ilike $1
+       limit 6)
+     union all
+     (select 'Zone', g.name, g.type::text, '/geofences'
+        from geofences g where g.name ilike $1 limit 5)
+     union all
+     (select 'Incident', i.ref, replace(i.type::text, '_', ' '), '/incidents/' || i.id
+        from incidents i where i.ref ilike $1 limit 5)`,
+    [like]);
+  return rows;
+}
