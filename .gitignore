@@ -55,3 +55,8 @@ backups/
 # Real device registration — an IMEI is a vendor-platform login name, and a
 # test paddock is usually a real address. Use real-device.sql.example.
 supabase/real-device.sql
+
+# Working notes that must never leave this machine — IMEIs, SIM numbers,
+# anything that identifies hardware. The README explains why.
+/local/*
+!/local/README.md
