@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# The template carries no values, and is the only record of what a deployment
+# needs — .env.local never leaves the machine it is on.
+!.env.example
 
 # vercel
 .vercel
