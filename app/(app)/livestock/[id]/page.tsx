@@ -9,6 +9,7 @@ import { Ring } from "@/components/charts/ring";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
 import { getAnimal, getHealthRecords, getIncidents, getMapParcels, getOwner } from "@/lib/db";
 import { EditRecord } from "@/components/app/edit-record";
+import { ClaimTag } from "@/components/app/claim-tag";
 
 type Params = Promise<{ id: string }>;
 
@@ -37,6 +38,7 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
           Back to registry
         </Link>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <ClaimTag animalId={animal.id} currentImei={animal.device.serial} />
           <EditRecord
             endpoint={`/api/animals/${animal.id}`}
             title="Correct animal record"

@@ -1,4 +1,4 @@
-import { createAnimal } from "@/lib/db";
+import { assignDevice, createAnimal, getDeviceByImei } from "@/lib/db";
 import { requireStaff, unauthorized } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
@@ -32,7 +32,23 @@ export async function POST(req: Request) {
       birthDate: b.birthDate ?? null, colour: b.colour ?? null,
       parcelName: b.parcel ?? null,
     });
-    return Response.json(animal, { status: 201 });
+    // If the officer typed the IMEI printed on the tag, claim it now. A tag that
+    // has not dialled in yet has no device row, so this is reported rather than
+    // failing the registration — the animal is registered either way, and the
+    // tag can be claimed from its page once it reports.
+    let tagLinked: string | null = null;
+    const imei = (b.imei ?? "").toString().trim();
+    if (imei) {
+      const device = await getDeviceByImei(imei);
+      if (device && !device.animal_id) {
+        await assignDevice(device.id, animal.id);
+        tagLinked = "linked";
+      } else {
+        tagLinked = device ? "already_assigned" : "not_reporting_yet";
+      }
+    }
+
+    return Response.json({ ...animal, tagLinked }, { status: 201 });
   } catch (err) {
     const m = err instanceof Error ? err.message : String(err);
     if (/animals_tag_key/.test(m)) {

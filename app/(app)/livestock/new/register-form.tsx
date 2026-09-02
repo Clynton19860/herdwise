@@ -145,6 +145,8 @@ export function RegisterAnimalForm({ owners }: { owners: Owner[] }) {
           name: name || null,
           birthDate: dob || null,
           colour: colors.join(", ") || null,
+          // Claims the tag in the same step, if it has already reported.
+          imei: deviceType !== "None" ? deviceSerial.trim() : null,
         }),
       });
       const data = await res.json().catch(() => ({}));

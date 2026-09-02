@@ -1165,3 +1165,52 @@ export async function getPendingOutbound(limit = 50) {
       order by n.created_at
       limit $1`, [limit]);
 }
+
+/* ------------------------------------------------------------- devices */
+
+export type UnclaimedDevice = {
+  id: string; imei: string; imeiMasked: string; type: string;
+  batteryPct: number | null; lastSeenAt: string | null; anomalies: number;
+};
+
+/**
+ * Tags reporting to the gateway that belong to no animal yet.
+ *
+ * The full IMEI is returned alongside the masked one: an officer standing in a
+ * field with a tag in their hand needs to match the number printed on it, and
+ * four digits is not enough to tell fifteen tags apart. This is behind a
+ * session, unlike the map endpoint that publishes to any signed-in viewer.
+ */
+export async function getUnclaimedDevices(): Promise<UnclaimedDevice[]> {
+  const rows = await query<{
+    id: string; imei: string; type: string; battery_pct: number | null;
+    last_seen_at: Date | null; anomalies: string;
+  }>(`select id, imei, type, battery_pct, last_seen_at, anomalies from unclaimed_devices`);
+  return rows.map((r) => ({
+    id: r.id, imei: r.imei, imeiMasked: maskImei(r.imei), type: r.type,
+    batteryPct: r.battery_pct,
+    lastSeenAt: r.last_seen_at ? r.last_seen_at.toISOString() : null,
+    anomalies: Number(r.anomalies),
+  }));
+}
+
+/**
+ * Attach a tag to an animal, or detach it.
+ *
+ * Passing a null animal releases the tag — which is what happens when one is
+ * taken off an animal that has been sold or has died, and it becomes claimable
+ * again rather than being deleted.
+ */
+export async function assignDevice(deviceId: string, animalId: string | null) {
+  const rows = await query<{ id: string; imei: string }>(
+    `update devices set animal_id = $2::uuid where id = $1::uuid returning id, imei`,
+    [asUuid(deviceId), asUuid(animalId)]);
+  return rows[0] ?? null;
+}
+
+/** Find a device by the IMEI printed on it, for claiming during registration. */
+export async function getDeviceByImei(imei: string) {
+  const rows = await query<{ id: string; animal_id: string | null }>(
+    `select id, animal_id from devices where imei = $1`, [imei.trim()]);
+  return rows[0] ?? null;
+}
