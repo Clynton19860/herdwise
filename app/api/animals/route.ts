@@ -1,5 +1,6 @@
 import { assignDevice, createAnimal, getDeviceByImei } from "@/lib/db";
-import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { unauthorized } from "@/lib/api-auth";
+import { principalFromRequest } from "@/lib/principal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ const SEX = new Set(["male", "female"]);
 
 /** Register an animal against an owner. */
 export async function POST(req: Request) {
-  const me = await requireStaff(req);
+  const me = await principalFromRequest(req);
   if (!me) return unauthorized();
 
   let b: Record<string, string | null | undefined>;
@@ -17,7 +18,10 @@ export async function POST(req: Request) {
 
   const tag = (b.tag ?? "").toString().trim();
   const species = (b.species ?? "").toString().toLowerCase();
-  const ownerId = (b.ownerId ?? "").toString();
+  // A farmer registers against himself and nobody else. Taking the owner from
+  // the body for an owner principal would let him file an animal under another
+  // farmer's name.
+  const ownerId = me.kind === "owner" ? me.id : (b.ownerId ?? "").toString();
 
   if (!tag) return bad("Enter the ear tag number.");
   if (!SPECIES.has(species)) return bad("Choose a species.");

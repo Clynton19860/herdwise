@@ -1329,3 +1329,58 @@ export async function getOwnerBreaches(ownerId: string) {
       order by (e.closed_at is null) desc, e.opened_at desc
       limit 20`, [asUuid(ownerId)]);
 }
+
+/* --------------------------------------------------- ownership checks */
+
+/**
+ * Does this animal belong to this owner?
+ *
+ * Asked before every write a farmer makes. He can do the same things an officer
+ * can — register an animal, claim a tag, correct a record, report an incident —
+ * but only against his own herd, and the boundary is checked here rather than
+ * assumed from which page the request came from. A page can be guessed at; a
+ * row's owner_id cannot.
+ */
+export async function animalBelongsTo(animalId: string, ownerId: string): Promise<boolean> {
+  const [row] = await query<{ n: string }>(
+    `select count(*)::text as n from animals
+      where id = $1::uuid and owner_id = $2::uuid`,
+    [asUuid(animalId), asUuid(ownerId)]);
+  return Number(row?.n ?? 0) > 0;
+}
+
+/**
+ * Is this tag free, or already on one of this owner's animals?
+ *
+ * An unclaimed tag may be claimed by anybody who is holding it — that is what
+ * unclaimed means, and the gateway has no way to know whose hand it is in. One
+ * already on another farmer's animal may not be taken.
+ */
+export async function deviceClaimableBy(deviceId: string, ownerId: string): Promise<boolean> {
+  const [row] = await query<{ ok: boolean }>(
+    `select (d.animal_id is null or a.owner_id = $2::uuid) as ok
+       from devices d left join animals a on a.id = d.animal_id
+      where d.id = $1::uuid`,
+    [asUuid(deviceId), asUuid(ownerId)]);
+  return Boolean(row?.ok);
+}
+
+/** Unclaimed tags, plus any already on this owner's own animals. */
+export async function getClaimableDevices(ownerId: string): Promise<UnclaimedDevice[]> {
+  const rows = await query<{
+    id: string; imei: string; type: string; battery_pct: number | null;
+    last_seen_at: Date | null; anomalies: string;
+  }>(
+    `select d.id, d.imei, d.type::text as type, d.battery_pct, d.last_seen_at,
+            (select count(*) from device_anomalies an where an.imei = d.imei) as anomalies
+       from devices d
+       left join animals a on a.id = d.animal_id
+      where d.animal_id is null or a.owner_id = $1::uuid
+      order by d.last_seen_at desc nulls last`, [asUuid(ownerId)]);
+  return rows.map((r) => ({
+    id: r.id, imei: r.imei, imeiMasked: maskImei(r.imei), type: r.type,
+    batteryPct: r.battery_pct,
+    lastSeenAt: r.last_seen_at ? r.last_seen_at.toISOString() : null,
+    anomalies: Number(r.anomalies),
+  }));
+}

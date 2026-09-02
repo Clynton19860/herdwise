@@ -1,14 +1,22 @@
-import { assignDevice, getUnclaimedDevices } from "@/lib/db";
-import { requireStaff, unauthorized } from "@/lib/api-auth";
+import {
+  animalBelongsTo, assignDevice, deviceClaimableBy,
+  getClaimableDevices, getUnclaimedDevices,
+} from "@/lib/db";
+import { unauthorized } from "@/lib/api-auth";
+import { principalFromRequest } from "@/lib/principal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** Tags reporting to the gateway that belong to no animal yet. */
 export async function GET(req: Request) {
-  const me = await requireStaff(req);
+  const me = await principalFromRequest(req);
   if (!me) return unauthorized();
-  return Response.json(await getUnclaimedDevices());
+  // A farmer sees unclaimed tags and his own. Another farmer's tags are not his
+  // to see, let alone to take.
+  return Response.json(
+    me.kind === "owner" ? await getClaimableDevices(me.id) : await getUnclaimedDevices(),
+  );
 }
 
 /**
@@ -19,9 +27,9 @@ export async function GET(req: Request) {
  * positions stays attached to the animal it was on at the time.
  */
 export async function POST(req: Request) {
-  const me = await requireStaff(req);
+  const me = await principalFromRequest(req);
   if (!me) return unauthorized();
-  if (me.role !== "officer" && me.role !== "admin") {
+  if (me.kind === "staff" && me.role !== "officer" && me.role !== "admin") {
     return Response.json({ error: "You cannot assign tags." }, { status: 403 });
   }
 
@@ -31,6 +39,17 @@ export async function POST(req: Request) {
   }
   if (!body.deviceId) {
     return Response.json({ error: "Choose a tag." }, { status: 400 });
+  }
+
+  if (me.kind === "owner") {
+    // Both ends have to be his: the tag must be free or already his, and the
+    // animal he is attaching it to must be his.
+    if (!(await deviceClaimableBy(body.deviceId, me.id))) {
+      return Response.json({ error: "That tag belongs to another owner." }, { status: 403 });
+    }
+    if (body.animalId && !(await animalBelongsTo(body.animalId, me.id))) {
+      return Response.json({ error: "That is not one of your animals." }, { status: 403 });
+    }
   }
 
   try {

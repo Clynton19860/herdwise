@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { I } from "@/components/ui/icon";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
 import { FieldMap } from "@/components/map/field-map";
+import { RegisterAnimal } from "@/components/owner/register-animal";
+import { ClaimTag } from "@/components/app/claim-tag";
+import { EditRecord } from "@/components/app/edit-record";
 import { formatShortDateTime } from "@/lib/time";
 import { getHerd, getHerdMap, getHerdParcels, getOwnerBreaches } from "@/lib/db";
 import { currentPrincipal } from "@/lib/principal";
@@ -77,7 +80,10 @@ export default async function MyHerdPage() {
       </GlassCard>
 
       <div>
-        <h2 className="text-base font-semibold tracking-tight px-1 mb-3">My animals</h2>
+        <div className="flex items-center justify-between gap-3 px-1 mb-3 flex-wrap">
+          <h2 className="text-base font-semibold tracking-tight">My animals</h2>
+          <RegisterAnimal parcels={parcels.map((p) => p.name)} />
+        </div>
         {herd.length === 0 ? (
           <GlassCard className="p-10 text-center">
             <I.Cow size={26} className="mx-auto text-white/35" />
@@ -114,6 +120,27 @@ export default async function MyHerdPage() {
                       ? `seen ${a.device.lastSyncMin}m ago`
                       : `seen ${Math.round(a.device.lastSyncMin / 60)}h ago`}
                   </span>
+                </div>
+
+                {/* The same controls an officer uses, bounded to his own herd by
+                    the endpoints rather than by which page they are on. */}
+                <div className="mt-4 pt-4 border-t border-white/6 flex items-center gap-2 flex-wrap">
+                  <ClaimTag animalId={a.id} currentImei={a.device.serial} />
+                  <EditRecord
+                    endpoint={`/api/animals/${a.id}`}
+                    title={`Correct ${a.name ?? a.tag}`}
+                    fields={[
+                      { name: "tag", label: "Ear tag", value: a.tag, hint: "As printed on the tag" },
+                      { name: "name", label: "Name", value: a.name ?? "" },
+                      { name: "breed", label: "Breed", value: a.breed === "\u2014" ? "" : a.breed },
+                      {
+                        name: "status", label: "Status", value: a.status.toLowerCase(),
+                        options: ["healthy", "monitoring", "alert", "quarantined", "deceased"].map((v) => ({
+                          value: v, label: v.replace(/^./, (c) => c.toUpperCase()),
+                        })),
+                      },
+                    ]}
+                  />
                 </div>
               </GlassCard>
             ))}

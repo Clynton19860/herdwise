@@ -1,5 +1,6 @@
-import { updateAnimal } from "@/lib/db";
-import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { animalBelongsTo, updateAnimal } from "@/lib/db";
+import { unauthorized } from "@/lib/api-auth";
+import { principalFromRequest } from "@/lib/principal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,13 +17,19 @@ const STATUS = new Set(["healthy", "monitoring", "alert", "quarantined", "deceas
  * follow. Uniqueness is enforced by the index.
  */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const me = await requireStaff(req);
+  const me = await principalFromRequest(req);
   if (!me) return unauthorized();
-  if (me.role !== "officer" && me.role !== "admin" && me.role !== "vet") {
-    return Response.json({ error: "You cannot edit animal records." }, { status: 403 });
-  }
 
   const { id } = await ctx.params;
+
+  if (me.kind === "owner") {
+    // Answered from the row's owner_id rather than from which page asked.
+    if (!(await animalBelongsTo(id, me.id))) {
+      return Response.json({ error: "That is not one of your animals." }, { status: 403 });
+    }
+  } else if (me.role !== "officer" && me.role !== "admin" && me.role !== "vet") {
+    return Response.json({ error: "You cannot edit animal records." }, { status: 403 });
+  }
   let b: Record<string, string | null | undefined>;
   try { b = await req.json(); } catch {
     return Response.json({ error: "Invalid request." }, { status: 400 });
