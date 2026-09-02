@@ -9,7 +9,8 @@ import { RegisterAnimal } from "@/components/owner/register-animal";
 import { ClaimTag } from "@/components/app/claim-tag";
 import { EditRecord } from "@/components/app/edit-record";
 import { formatShortDateTime } from "@/lib/time";
-import { getHerd, getHerdMap, getHerdParcels, getOwnerBreaches } from "@/lib/db";
+import { getHerd, getHerdMap, getHerdParcels, getOwnerBreaches, getWards } from "@/lib/db";
+import { CreateFarm } from "@/components/owner/create-farm";
 import { currentPrincipal } from "@/lib/principal";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,18 @@ export const metadata = { title: "My herd — Herdwise" };
 export default async function MyHerdPage() {
   const principal = await currentPrincipal();
   if (principal?.kind !== "owner") redirect("/login?next=/my");
+
+  // Nothing has been set up for a newly invited farmer. Rather than showing him
+  // an empty herd on a platform that already decided where he is, the first
+  // screen asks him to describe his own place.
+  if (principal.farms.length === 0) {
+    const wards = await getWards();
+    return (
+      <div className="grid place-items-center py-10">
+        <CreateFarm wards={wards.map((w) => w.name)} firstTime />
+      </div>
+    );
+  }
 
   const [herd, mapAnimals, parcels, breaches] = await Promise.all([
     getHerd(principal.id),

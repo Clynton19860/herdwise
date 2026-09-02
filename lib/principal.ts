@@ -1,8 +1,8 @@
 import "server-only";
 import { SESSION_COOKIE, readSession } from "@/lib/auth";
 import {
-  getOwnerAccountById, getStaffById,
-  type OwnerAccount, type StaffAccount,
+  getFarmsFor, getOwnerAccountById, getStaffById,
+  type Farm, type OwnerAccount, type StaffAccount,
 } from "@/lib/db";
 
 /**
@@ -18,7 +18,16 @@ import {
  */
 export type Principal =
   | { kind: "staff"; id: string; name: string; role: string; ward: string | null; staff: StaffAccount }
-  | { kind: "owner"; id: string; name: string; ward: string | null; owner: OwnerAccount };
+  | {
+      kind: "owner"; id: string; name: string; ward: string | null; owner: OwnerAccount;
+      /**
+       * The farms this person works on. Empty for somebody newly invited who has
+       * not described their place yet — the interface asks them to before
+       * anything else, rather than inventing one for them.
+       */
+      farms: Farm[];
+      farmIds: string[];
+    };
 
 async function resolve(token: string | undefined): Promise<Principal | null> {
   const session = readSession(token);
@@ -28,7 +37,11 @@ async function resolve(token: string | undefined): Promise<Principal | null> {
   if (session.k === "o") {
     const owner = await getOwnerAccountById(session.sub);
     if (!owner || owner.tokenVersion !== session.v) return null;
-    return { kind: "owner", id: owner.id, name: owner.fullName, ward: owner.ward, owner };
+    const farms = await getFarmsFor(owner.id);
+    return {
+      kind: "owner", id: owner.id, name: owner.fullName, ward: owner.ward, owner,
+      farms, farmIds: farms.map((f) => f.id),
+    };
   }
 
   const staff = await getStaffById(session.sub);
@@ -59,4 +72,15 @@ export async function principalFromRequest(req: Request): Promise<Principal | nu
  */
 export function ownerScope(p: Principal | null): string | null {
   return p?.kind === "owner" ? p.id : null;
+}
+
+/** May this person act on this farm, and does their role allow appointing others? */
+export function farmRole(p: Principal | null, farmId: string): string | null {
+  if (p?.kind !== "owner") return null;
+  return p.farms.find((f) => f.id === farmId)?.role ?? null;
+}
+
+export function canAppoint(p: Principal | null, farmId: string): boolean {
+  const role = farmRole(p, farmId);
+  return role === "owner" || role === "manager";
 }

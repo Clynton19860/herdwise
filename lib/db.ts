@@ -1384,3 +1384,102 @@ export async function getClaimableDevices(ownerId: string): Promise<UnclaimedDev
     anomalies: Number(r.anomalies),
   }));
 }
+
+/* ----------------------------------------------------------------- farms */
+
+export type Farm = {
+  id: string; name: string; ward: string | null; district: string | null;
+  role: string; animals: number; areas: number; members: number;
+};
+
+/**
+ * The farms a person belongs to, with their role on each.
+ *
+ * Somebody can manage two farms and a vet may attend several, so this is
+ * membership rather than a column on the person. An empty list is the normal
+ * state for a newly invited farmer — he has not described his place yet, and the
+ * interface asks him to before anything else.
+ */
+export async function getFarmsFor(personId: string): Promise<Farm[]> {
+  return query<Farm>(
+    `select f.id, f.name, w.name as ward, f.district, m.role::text as role,
+            (select count(*) from animals a where a.farm_id = f.id)::int as animals,
+            (select count(*) from land_parcels p where p.farm_id = f.id)::int as areas,
+            (select count(*) from farm_members fm where fm.farm_id = f.id)::int as members
+       from farm_members m
+       join farms f on f.id = m.farm_id
+       left join wards w on w.id = f.ward_id
+      where m.person_id = $1::uuid
+      order by f.name`, [asUuid(personId)]);
+}
+
+/** Creating a farm makes you its owner in the same transaction. */
+export async function createFarm(opts: {
+  name: string; personId: string; district?: string | null; wardName?: string | null;
+}) {
+  const rows = await query<{ id: string }>(
+    `insert into farms (name, district, ward_id, created_by)
+     values ($1, $2, (select id from wards where name = $3), $4::uuid)
+     returning id`,
+    [opts.name.trim(), opts.district ?? null, opts.wardName ?? null, asUuid(opts.personId)]);
+  const farm = rows[0];
+  await query(
+    `insert into farm_members (farm_id, person_id, role) values ($1::uuid, $2::uuid, 'owner')`,
+    [asUuid(farm.id), asUuid(opts.personId)]);
+  return farm;
+}
+
+/** Is this person a member of this farm, and in what role? */
+export async function farmRoleOf(personId: string, farmId: string): Promise<string | null> {
+  const [row] = await query<{ role: string }>(
+    `select role::text as role from farm_members
+      where person_id = $1::uuid and farm_id = $2::uuid`,
+    [asUuid(personId), asUuid(farmId)]);
+  return row?.role ?? null;
+}
+
+export type FarmMember = {
+  personId: string; name: string; email: string | null; role: string; phone: string;
+};
+
+export async function getFarmMembers(farmId: string): Promise<FarmMember[]> {
+  return query<FarmMember>(
+    `select o.id as "personId", o.full_name as name, o.email, o.phone,
+            m.role::text as role
+       from farm_members m join owners o on o.id = m.person_id
+      where m.farm_id = $1::uuid
+      order by case m.role::text when 'owner' then 0 when 'manager' then 1 else 2 end,
+               o.full_name`, [asUuid(farmId)]);
+}
+
+/** Add somebody to a farm. The person record is created if the email is new. */
+export async function addFarmMember(opts: {
+  farmId: string; fullName: string; email: string; role: string; phone: string;
+}) {
+  const existing = await query<{ id: string }>(
+    `select id from owners where lower(email) = lower($1)`, [opts.email.trim()]);
+
+  const personId = existing[0]?.id ?? (await query<{ id: string }>(
+    `insert into owners (full_name, national_id, phone, email)
+     values ($1, $2, $3, $4) returning id`,
+    // A person appointed to a farm has no national ID on record yet; the farm
+    // knows who they are, the municipal register does not until it is given one.
+    [opts.fullName.trim(), `PENDING-${Date.now().toString(36).toUpperCase()}`,
+     opts.phone.trim() || '—', opts.email.trim()],
+  ))[0].id;
+
+  await query(
+    `insert into farm_members (farm_id, person_id, role)
+     values ($1::uuid, $2::uuid, $3::farm_role)
+     on conflict (farm_id, person_id) do update set role = excluded.role`,
+    [asUuid(opts.farmId), asUuid(personId), opts.role]);
+
+  return { personId };
+}
+
+export async function removeFarmMember(farmId: string, personId: string) {
+  await query(
+    `delete from farm_members where farm_id = $1::uuid and person_id = $2::uuid
+       and role <> 'owner'`,
+    [asUuid(farmId), asUuid(personId)]);
+}

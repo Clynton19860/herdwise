@@ -45,6 +45,9 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
             <Link href="/my" className="h-9 px-3.5 rounded-2xl text-sm text-white/70 hover:text-white hover:bg-white/6 transition-colors">
               My herd
             </Link>
+            <Link href="/my/farms" className="h-9 px-3.5 rounded-2xl text-sm text-white/70 hover:text-white hover:bg-white/6 transition-colors">
+              My farms
+            </Link>
             <Link href="/my/profile" className="h-9 px-3.5 rounded-2xl text-sm text-white/70 hover:text-white hover:bg-white/6 transition-colors">
               My details
             </Link>
@@ -62,8 +65,9 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
       </main>
 
       <nav className="sm:hidden fixed bottom-0 inset-x-0 z-30 glass-heavy border-t border-white/8 flex">
-        <Link href="/my" className="flex-1 py-3 text-center text-sm text-white/75">My herd</Link>
-        <Link href="/my/profile" className="flex-1 py-3 text-center text-sm text-white/75">My details</Link>
+        <Link href="/my" className="flex-1 py-3 text-center text-sm text-white/75">Herd</Link>
+        <Link href="/my/farms" className="flex-1 py-3 text-center text-sm text-white/75">Farms</Link>
+        <Link href="/my/profile" className="flex-1 py-3 text-center text-sm text-white/75">Details</Link>
       </nav>
     </div>
   );
