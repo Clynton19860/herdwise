@@ -9,10 +9,11 @@ project_id = "herdwise"
 [auth]
 enabled = true
 # Codes are entered in the app, not clicked, so no email in this project carries
-# a redirect link. This is set for completeness rather than because a flow
-# depends on it.
-site_url = "http://localhost:3001"
-additional_redirect_urls = []
+# a redirect link — nothing depends on this. Set correctly anyway, because a
+# production project pointing at a laptop is the kind of detail that is wrong
+# quietly until the day something does depend on it.
+site_url = "https://herdwise-mu.vercel.app"
+additional_redirect_urls = ["http://localhost:3001"]
 enable_signup = true
 minimum_password_length = 8
 
