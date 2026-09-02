@@ -11,6 +11,8 @@ export type Owner = {
   ward: string;
   /** Free-text street or area. Null until somebody records one. */
   address: string | null;
+  /** Set only when this owner has been given an account. */
+  email: string | null;
   herdSize: number;
   registeredOn: string;
 };

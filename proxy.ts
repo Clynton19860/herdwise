@@ -30,5 +30,8 @@ export const config = {
     "/dashboard/:path*", "/tracking/:path*", "/livestock/:path*", "/owners/:path*",
     "/geofences/:path*", "/incidents/:path*", "/health/:path*", "/analytics/:path*",
     "/settings/:path*",
+    // The farm owner's surface. The real check — including that the principal is
+    // an owner rather than staff — happens in its layout.
+    "/my/:path*",
   ],
 };

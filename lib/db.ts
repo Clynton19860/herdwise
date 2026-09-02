@@ -117,10 +117,11 @@ type OwnerRow = {
   id: string; full_name: string; national_id: string; phone: string;
   ward: string | null; herd_size: string; created_at: Date;
   address: string | null;
+  email: string | null;
 };
 
 const OWNER_SQL = `
-  select o.id, o.full_name, o.national_id, o.phone, o.address,
+  select o.id, o.full_name, o.national_id, o.phone, o.address, o.email,
          w.name as ward,
          (select count(*) from animals a where a.owner_id = o.id) as herd_size,
          o.created_at
@@ -133,6 +134,7 @@ const toOwner = (r: OwnerRow): Owner => ({
   nationalId: r.national_id,
   phone: r.phone,
   address: r.address ?? null,
+  email: r.email ?? null,
   ward: r.ward ?? "—",
   herdSize: Number(r.herd_size),
   registeredOn: iso(r.created_at),
@@ -1213,4 +1215,117 @@ export async function getDeviceByImei(imei: string) {
   const rows = await query<{ id: string; animal_id: string | null }>(
     `select id, animal_id from devices where imei = $1`, [imei.trim()]);
   return rows[0] ?? null;
+}
+
+/* ------------------------------------------------------- owner accounts */
+
+export type OwnerAccount = {
+  id: string; fullName: string; ward: string | null; phone: string;
+  passwordHash: string | null; tokenVersion: number;
+};
+
+const OWNER_ACCOUNT_SQL = `
+  select o.id, o.full_name, o.phone, w.name as ward,
+         o.password_hash, o.token_version
+    from owners o left join wards w on w.id = o.ward_id`;
+
+type OwnerAccountRow = {
+  id: string; full_name: string; phone: string; ward: string | null;
+  password_hash: string | null; token_version: number;
+};
+
+const toOwnerAccount = (r: OwnerAccountRow): OwnerAccount => ({
+  id: r.id, fullName: r.full_name, phone: r.phone, ward: r.ward,
+  passwordHash: r.password_hash, tokenVersion: Number(r.token_version),
+});
+
+export async function getOwnerAccountByEmail(email: string): Promise<OwnerAccount | null> {
+  const rows = await query<OwnerAccountRow>(
+    `${OWNER_ACCOUNT_SQL} where lower(o.email) = lower($1)`, [email.trim()]);
+  return rows[0] ? toOwnerAccount(rows[0]) : null;
+}
+
+export async function getOwnerAccountById(id: string): Promise<OwnerAccount | null> {
+  const rows = await query<OwnerAccountRow>(
+    `${OWNER_ACCOUNT_SQL} where o.id = $1::uuid`, [asUuid(id)]);
+  return rows[0] ? toOwnerAccount(rows[0]) : null;
+}
+
+/** One address, one principal — checked before an invitation is sent. */
+export async function emailIsFree(email: string): Promise<boolean> {
+  const [row] = await query<{ free: boolean }>(
+    `select email_is_free($1) as free`, [email.trim()]);
+  return Boolean(row?.free);
+}
+
+export async function setOwnerEmail(ownerId: string, email: string) {
+  await query(`update owners set email = $2 where id = $1::uuid`, [asUuid(ownerId), email.trim()]);
+}
+
+export async function setOwnerPassword(ownerId: string, passwordHash: string) {
+  await query(
+    `update owners set password_hash = $2, token_version = token_version + 1
+      where id = $1::uuid`, [asUuid(ownerId), passwordHash]);
+}
+
+export async function touchOwnerLogin(ownerId: string) {
+  await query(`update owners set last_login_at = now() where id = $1::uuid`, [asUuid(ownerId)]);
+}
+
+/* ------------------------------------------------ owner-scoped queries */
+
+/**
+ * Everything a farm owner may see.
+ *
+ * Each of these takes the owner's id as a required argument rather than reading
+ * it from a session, so the scope is visible at every call site and a query that
+ * forgot it would not compile. That is the whole safety argument: the officer
+ * pages and these are different code, and the boundary is a function signature
+ * rather than a filter somebody has to remember.
+ */
+export async function getHerd(ownerId: string): Promise<Animal[]> {
+  return (await query<AnimalRow>(
+    `${ANIMAL_SQL} where a.owner_id = $1::uuid order by a.tag`,
+    [asUuid(ownerId)])).map(toAnimal);
+}
+
+export async function getHerdMap(ownerId: string): Promise<MapAnimal[]> {
+  return query<MapAnimal>(
+    `select m.animal_id, m.tag, m.name, m.species, m.status, m.owner_name,
+            m.battery_pct, m.last_fix_at, m.last_fix_type, m.lat, m.lng,
+            m.parcel_id, m.parcel_name, m.containment_state, m.distance_m
+       from map_animals m
+       join animals a on a.id = m.animal_id
+      where a.owner_id = $1::uuid and m.lat is not null
+      order by m.tag`, [asUuid(ownerId)]);
+}
+
+/** The allocations this owner's animals are held to. */
+export async function getHerdParcels(ownerId: string): Promise<MapParcel[]> {
+  return query<MapParcel>(
+    `select distinct p.* from map_parcels p
+       join animals a on a.home_parcel_id = p.id
+      where a.owner_id = $1::uuid`, [asUuid(ownerId)]);
+}
+
+export async function getOwnerIncidents(ownerId: string): Promise<Incident[]> {
+  return (await query<IncidentRow>(
+    `${INCIDENT_SQL} where i.owner_id = $1::uuid order by i.reported_at desc limit 50`,
+    [asUuid(ownerId)])).map(toIncident);
+}
+
+/** Breaches involving this owner's animals, open first. */
+export async function getOwnerBreaches(ownerId: string) {
+  return query<{
+    id: string; tag: string; animal_id: string; parcel: string | null;
+    opened_at: Date; closed_at: Date | null; max_distance_m: number | null;
+  }>(
+    `select e.id, a.tag, a.id as animal_id, p.name as parcel,
+            e.opened_at, e.closed_at, e.max_distance_m
+       from containment_events e
+       join animals a on a.id = e.animal_id
+       left join land_parcels p on p.id = e.parcel_id
+      where a.owner_id = $1::uuid
+      order by (e.closed_at is null) desc, e.opened_at desc
+      limit 20`, [asUuid(ownerId)]);
 }

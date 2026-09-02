@@ -78,7 +78,17 @@ export const CODE_TTL_MINUTES = 10;
 export const SESSION_COOKIE = "herdwise_session";
 export const SESSION_HOURS = 12;
 
-export type Session = { sub: string; v: number; exp: number };
+/**
+ * `k` is the kind of principal: "s" for staff, "o" for a farm owner. They live
+ * in different tables with independent id spaces, so a session that does not say
+ * which one it means could be resolved against the wrong table — and an owner id
+ * that happened to match a staff id would inherit that person's access.
+ *
+ * Absent on sessions issued before owners existed, which are read as staff. Those
+ * expire within twelve hours and the field is required on everything issued now.
+ */
+export type PrincipalKind = "staff" | "owner";
+export type Session = { sub: string; v: number; exp: number; k?: "s" | "o" };
 
 function secret(): string {
   const s = process.env.SESSION_SECRET;
@@ -101,11 +111,16 @@ function sign(payload: string): string {
  * `token_version` covers the case that matters: bumping it on the staff row
  * invalidates every session already issued to that person at once.
  */
-export function issueSession(staffId: string, tokenVersion: number): string {
+export function issueSession(
+  subjectId: string,
+  tokenVersion: number,
+  kind: PrincipalKind = "staff",
+): string {
   const body: Session = {
-    sub: staffId,
+    sub: subjectId,
     v: tokenVersion,
     exp: Date.now() + SESSION_HOURS * 3_600_000,
+    k: kind === "owner" ? "o" : "s",
   };
   const payload = Buffer.from(JSON.stringify(body)).toString("base64url");
   return `${payload}.${sign(payload)}`;
@@ -124,6 +139,7 @@ export function readSession(token: string | undefined): Session | null {
     const body = JSON.parse(Buffer.from(payload, "base64url").toString()) as Session;
     if (typeof body.exp !== "number" || body.exp < Date.now()) return null;
     if (typeof body.sub !== "string" || typeof body.v !== "number") return null;
+    if (body.k !== undefined && body.k !== "s" && body.k !== "o") return null;
     return body;
   } catch {
     return null;

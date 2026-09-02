@@ -1,4 +1,4 @@
-import { getStaffByEmail } from "@/lib/db";
+import { getOwnerAccountByEmail, getStaffByEmail } from "@/lib/db";
 import { CODE_TTL_MINUTES, issueChallenge, verifyPassword } from "@/lib/auth";
 import { sendSignInCode } from "@/lib/supabase-auth";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
@@ -37,8 +37,16 @@ export async function POST(req: Request) {
     return Response.json({ error: "Enter your email and password." }, { status: 400 });
   }
 
+  // An address belongs to exactly one principal — enforced when an invitation is
+  // sent — so this is a lookup rather than a choice.
   const staff = await getStaffByEmail(email);
-  const ok = staff?.active ? await verifyPassword(password, staff.passwordHash) : false;
+  const owner = staff ? null : await getOwnerAccountByEmail(email);
+
+  const ok = staff?.active
+    ? await verifyPassword(password, staff.passwordHash)
+    : owner
+      ? await verifyPassword(password, owner.passwordHash)
+      : false;
 
   if (ok) {
     // Failures are logged, never returned. Supabase's own mailer allows two

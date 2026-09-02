@@ -1,4 +1,4 @@
-import { getStaffByEmail } from "@/lib/db";
+import { getOwnerAccountByEmail, getStaffByEmail } from "@/lib/db";
 import { CODE_TTL_MINUTES, issueChallenge } from "@/lib/auth";
 import { sendResetCode } from "@/lib/supabase-auth";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
@@ -33,7 +33,8 @@ export async function POST(req: Request) {
   if (!email) return Response.json({ error: "Enter your email." }, { status: 400 });
 
   const staff = await getStaffByEmail(email);
-  if (staff?.active) await sendResetCode(email);
+  const owner = staff ? null : await getOwnerAccountByEmail(email);
+  if (staff?.active || owner) await sendResetCode(email);
 
   return Response.json({ challenge: issueChallenge(email), expiresInMinutes: CODE_TTL_MINUTES });
 }

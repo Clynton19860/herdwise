@@ -1,4 +1,4 @@
-import { getStaffByEmail, setStaffPassword } from "@/lib/db";
+import { getOwnerAccountByEmail, getStaffByEmail, setOwnerPassword, setStaffPassword } from "@/lib/db";
 import { hashPassword, readChallenge } from "@/lib/auth";
 import { checkSignInCode } from "@/lib/supabase-auth";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
@@ -51,15 +51,19 @@ export async function POST(req: Request) {
     );
   }
 
+  // One address, one principal — so this is a lookup rather than a choice.
   const staff = await getStaffByEmail(claim.email);
-  if (!staff || !staff.active) {
+  const owner = staff ? null : await getOwnerAccountByEmail(claim.email);
+  if ((!staff || !staff.active) && !owner) {
     return Response.json({ error: "That code is not right or has expired." }, { status: 401 });
   }
   if (!(await checkSignInCode(claim.email, code, flow))) {
     return Response.json({ error: "That code is not right or has expired." }, { status: 401 });
   }
 
-  await setStaffPassword(staff.id, await hashPassword(password));
+  const hash = await hashPassword(password);
+  if (staff) await setStaffPassword(staff.id, hash);
+  else if (owner) await setOwnerPassword(owner.id, hash);
 
   // Deliberately no session. Signing in afterwards proves the new password
   // works, and goes through the second factor like any other sign-in.

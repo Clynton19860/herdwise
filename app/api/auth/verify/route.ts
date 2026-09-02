@@ -1,4 +1,4 @@
-import { getStaffByEmail, touchLastLogin } from "@/lib/db";
+import { getOwnerAccountByEmail, getStaffByEmail, touchLastLogin, touchOwnerLogin } from "@/lib/db";
 import { SESSION_COOKIE, issueSession, readChallenge, sessionCookieOptions } from "@/lib/auth";
 import { checkSignInCode } from "@/lib/supabase-auth";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
@@ -43,14 +43,27 @@ export async function POST(req: Request) {
   }
 
   const staff = await getStaffByEmail(claim.email);
-  if (!staff || !staff.active || !(await checkSignInCode(claim.email, code))) {
+  const owner = staff ? null : await getOwnerAccountByEmail(claim.email);
+  const principal = staff?.active ? staff : owner;
+
+  if (!principal || !(await checkSignInCode(claim.email, code))) {
     return Response.json({ error: "That code is not right or has expired." }, { status: 401 });
   }
 
-  await touchLastLogin(staff.id);
+  if (staff) await touchLastLogin(staff.id);
+  else if (owner) await touchOwnerLogin(owner.id);
 
-  const res = Response.json({ ok: true, name: staff.fullName });
-  const token = issueSession(staff.id, staff.tokenVersion);
+  // Staff land on the ward overview; an owner lands on his own herd. Told to the
+  // client rather than guessed, so the redirect cannot send a farmer to a page
+  // he is not allowed to open.
+  const res = Response.json({
+    ok: true,
+    name: principal.fullName,
+    home: staff ? "/dashboard" : "/my",
+  });
+  const token = issueSession(
+    principal.id, principal.tokenVersion, staff ? "staff" : "owner",
+  );
   const o = sessionCookieOptions();
   res.headers.append(
     "set-cookie",

@@ -13,6 +13,7 @@ import { Sparkline } from "@/components/charts/sparkline";
 import { StatusBadge, BatteryBar, SeverityBadge, IncidentStatusBadge } from "@/components/app/indicators";
 import { getAnimals, getGeofences, getIncidents, getMovementStats, getOwner, getWards } from "@/lib/db";
 import { EditRecord } from "@/components/app/edit-record";
+import { InviteOwner } from "@/components/owner/invite-owner";
 
 type Params = Promise<{ id: string }>;
 
@@ -54,6 +55,7 @@ export default async function OwnerDetailPage({ params }: { params: Params }) {
           Back to owners directory
         </Link>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <InviteOwner ownerId={owner.id} email={owner.email} />
           <EditRecord
             endpoint={`/api/owners/${owner.id}`}
             title="Correct owner details"

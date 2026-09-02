@@ -78,7 +78,9 @@ export function LoginForm({
         setError(data.error ?? "That code is not right.");
         return;
       }
-      router.replace(next);
+      // `next` only applies when it is a page this principal can open; the
+      // server says where home is for them.
+      router.replace(next !== "/dashboard" ? next : (data.home ?? "/dashboard"));
       router.refresh();
     } catch {
       setError("Could not reach the server.");
