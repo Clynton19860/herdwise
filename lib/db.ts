@@ -31,16 +31,32 @@ export class DatabaseNotConfigured extends Error {
 // connections until Postgres refuses new ones.
 const globalForPg = globalThis as unknown as { herdwisePool?: Pool };
 
+/**
+ * TLS for anything that leaves this machine, and nothing for a local socket.
+ *
+ * Supabase's pooler presents a certificate from its own private CA, which is in
+ * no system trust store. Pin it rather than disabling verification — this
+ * connection carries every animal position over the public internet. The CA is
+ * embedded (see lib/supabase-ca.ts) because serverless bundles do not reliably
+ * ship files read at runtime.
+ *
+ * A local Postgres has no TLS at all and refuses the handshake, which made it
+ * impossible to run the application against the development database. Only an
+ * explicit localhost host turns it off, so no deployment can reach this branch
+ * by accident.
+ */
+function tlsFor(url: string) {
+  let host = "";
+  try { host = new URL(url).hostname; } catch { /* fall through to TLS on */ }
+  const isLocal = host === "localhost" || host === "127.0.0.1" || host === "::1";
+  return isLocal ? false : { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true };
+}
+
 function pool(): Pool {
   if (!process.env.DATABASE_URL) throw new DatabaseNotConfigured();
   globalForPg.herdwisePool ??= new Pool({
     connectionString: process.env.DATABASE_URL,
-    // Supabase's pooler presents a certificate from its own private CA, which
-    // is in no system trust store. Pin it rather than disabling verification —
-    // this connection carries every animal position over the public internet.
-    // The CA is embedded (see lib/supabase-ca.ts) because serverless bundles do
-    // not reliably ship files read at runtime.
-    ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true },
+    ssl: tlsFor(process.env.DATABASE_URL),
     max: 5,
     connectionTimeoutMillis: 5_000,
     idleTimeoutMillis: 30_000,
@@ -915,21 +931,32 @@ export type StaffAccount = {
   passwordHash: string | null;
   tokenVersion: number;
   active: boolean;
+  /**
+   * The human behind the post.
+   *
+   * Permissions are held by people, not by council posts — the same
+   * veterinarian may be a member of a council and of three farms. Null for a
+   * row created before identity was split out, and for a farmer the City has
+   * registered who has never signed in.
+   */
+  personId: string | null;
 };
 
 const STAFF_ACCOUNT_SQL = `
   select s.auth_user_id as id, s.full_name, s.role::text as role, w.name as ward,
-         s.password_hash, s.token_version, s.active, s.email
+         s.password_hash, s.token_version, s.active, s.email, s.person_id
     from staff s left join wards w on w.id = s.ward_id`;
 
 type StaffAccountRow = {
   id: string; full_name: string; role: string; ward: string | null;
-  password_hash: string | null; token_version: number; active: boolean; email: string | null;
+  password_hash: string | null; token_version: number; active: boolean;
+  email: string | null; person_id: string | null;
 };
 
 const toAccount = (r: StaffAccountRow): StaffAccount => ({
   id: r.id, fullName: r.full_name, role: r.role, ward: r.ward,
   passwordHash: r.password_hash, tokenVersion: Number(r.token_version), active: r.active,
+  personId: r.person_id,
 });
 
 /** Case-insensitive: nobody remembers whether they registered with a capital. */
@@ -1374,26 +1401,163 @@ export async function deleteAnimal(animalId: string): Promise<{
   return { tag: rows[0].tag, releasedImei: released[0]?.imei ?? null };
 }
 
+/* ---------------------------------------------------------- permission */
+
+export type TenantGrant = {
+  tenantId: string;
+  tenantName: string;
+  kind: "platform" | "municipal" | "farm";
+  plan: "full" | "demo" | "suspended";
+  role: "owner" | "admin" | "manager" | "officer" | "vet" | "herdsman" | "viewer";
+  /** The council this farm answers to, for the disclosure boundary. */
+  jurisdictionId: string | null;
+};
+
+/**
+ * What a person may do, read from the database rather than from the session.
+ *
+ * The plan in particular must never travel in a cookie. A ceiling the browser
+ * carries is a ceiling the browser can be persuaded to raise, and the whole
+ * point of putting it on the tenant was that nobody inside can lift it.
+ *
+ * Returns every tenant they hold, because a veterinarian invited onto several
+ * farms is one person with several grants and the route has to know which one
+ * the record in front of it falls under.
+ */
+export async function getGrants(personId: string): Promise<TenantGrant[]> {
+  const rows = await query<{
+    tenant_id: string; name: string; kind: string; plan: string; role: string;
+    jurisdiction_id: string | null;
+  }>(`select t.id as tenant_id, t.name, t.kind::text, t.plan::text,
+             m.role::text, t.jurisdiction_id
+        from tenant_members m
+        join tenants t on t.id = m.tenant_id
+       where m.person_id = $1::uuid
+       order by case t.kind when 'platform' then 0 when 'municipal' then 1 else 2 end, t.name`,
+     [asUuid(personId)]);
+
+  return rows.map((r) => ({
+    tenantId: r.tenant_id, tenantName: r.name,
+    kind: r.kind as TenantGrant["kind"],
+    plan: r.plan as TenantGrant["plan"],
+    role: r.role as TenantGrant["role"],
+    jurisdictionId: r.jurisdiction_id,
+  }));
+}
+
+/**
+ * The tenant a record belongs to, so a route can ask about the right ceiling.
+ *
+ * Answered from the row rather than from which page asked for it — the same
+ * reason `animalBelongsTo` exists. A caller that passes its own idea of the
+ * tenant is a caller that can pass somebody else's.
+ */
+export async function tenantOf(
+  table: "animals" | "devices" | "land_parcels" | "geofences" | "incidents" | "owners",
+  id: string,
+): Promise<{ tenantId: string; jurisdictionId: string | null } | null> {
+  // The table name is not interpolated from user input — the union above is the
+  // whole permitted set, and TypeScript will not compile anything outside it.
+  //
+  // The jurisdiction comes back with it because a council officer regulating a
+  // farm is not a member of that farm, and asking whether they may act on its
+  // records cannot be answered from their own memberships alone.
+  const rows = await query<{ tenant_id: string | null; jurisdiction_id: string | null }>(
+    `select r.tenant_id, t.jurisdiction_id
+       from ${table} r left join tenants t on t.id = r.tenant_id
+      where r.id = $1::uuid`, [asUuid(id)]);
+  const r = rows[0];
+  if (!r?.tenant_id) return null;
+  return { tenantId: r.tenant_id, jurisdictionId: r.jurisdiction_id };
+}
+
+/* ------------------------------------------------------------- identity */
+
+export type PersonAccount = {
+  id: string; fullName: string; email: string;
+  passwordHash: string | null; active: boolean; tokenVersion: number;
+};
+
+export type Membership = {
+  kind: "staff" | "owner";
+  subjectId: string;
+  role: string;
+  label: string;
+  ward: string | null;
+};
+
+/**
+ * Sign-in resolves a person, not a role.
+ *
+ * `staff` and `owners` each carried their own email and password, so the login
+ * route had to pick one table to check first — and whichever it picked, the
+ * other identity for that address became unreachable. A council administrator
+ * who also owns cattle could not sign in as a farmer.
+ */
+export async function getPersonByEmail(email: string): Promise<PersonAccount | null> {
+  const rows = await query<{
+    id: string; full_name: string; email: string;
+    password_hash: string | null; active: boolean; token_version: number;
+  }>(`select id, full_name, email, password_hash, active, token_version
+        from people where lower(email) = lower($1)`, [email.trim()]);
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    id: r.id, fullName: r.full_name, email: r.email,
+    passwordHash: r.password_hash, active: r.active, tokenVersion: Number(r.token_version),
+  };
+}
+
+/**
+ * Every hat this person may wear.
+ *
+ * Re-derived on the server whenever a hat is chosen, so a browser cannot ask to
+ * become somebody it is not by editing an id — the choice is checked against
+ * this list rather than trusted.
+ */
+export async function getMemberships(personId: string): Promise<Membership[]> {
+  const rows = await query<{
+    kind: string; subject_id: string; role: string; label: string; ward: string | null;
+  }>(`select m.kind, m.subject_id, m.role, m.label, w.name as ward
+        from person_memberships m
+        left join wards w on w.id = m.ward_id
+       where m.person_id = $1::uuid and m.active
+       order by case m.kind when 'staff' then 0 else 1 end, m.label`,
+     [asUuid(personId)]);
+  return rows.map((r) => ({
+    kind: r.kind === "owner" ? "owner" : "staff",
+    subjectId: r.subject_id, role: r.role, label: r.label, ward: r.ward,
+  }));
+}
+
+/** Records the sign-in against the person, so "last seen" is per human. */
+export async function touchPersonLogin(personId: string) {
+  await query(`update people set last_login_at = now() where id = $1::uuid`, [asUuid(personId)]);
+}
+
 /* ------------------------------------------------------- owner accounts */
 
 export type OwnerAccount = {
   id: string; fullName: string; ward: string | null; phone: string;
   passwordHash: string | null; tokenVersion: number;
+  /** The human behind the record. See {@link StaffAccount.personId}. */
+  personId: string | null;
 };
 
 const OWNER_ACCOUNT_SQL = `
   select o.id, o.full_name, o.phone, w.name as ward,
-         o.password_hash, o.token_version
+         o.password_hash, o.token_version, o.person_id
     from owners o left join wards w on w.id = o.ward_id`;
 
 type OwnerAccountRow = {
   id: string; full_name: string; phone: string; ward: string | null;
-  password_hash: string | null; token_version: number;
+  password_hash: string | null; token_version: number; person_id: string | null;
 };
 
 const toOwnerAccount = (r: OwnerAccountRow): OwnerAccount => ({
   id: r.id, fullName: r.full_name, phone: r.phone, ward: r.ward,
   passwordHash: r.password_hash, tokenVersion: Number(r.token_version),
+  personId: r.person_id,
 });
 
 export async function getOwnerAccountByEmail(email: string): Promise<OwnerAccount | null> {
