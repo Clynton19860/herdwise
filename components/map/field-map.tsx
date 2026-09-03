@@ -41,6 +41,19 @@ const STATUS_COLOUR: Record<string, string> = {
 const BREACH_COLOUR = "#ff3b3b";
 
 /**
+ * An animal with no allocation cannot be assessed, and must not look compliant.
+ *
+ * Containment has nothing to measure her against, so `containment_state` is
+ * null — which fell through to the healthy green and made her indistinguishable
+ * from an animal known to be where she belongs. In an enforcement system that
+ * is the wrong default: a farmer whose animal was never allocated would appear
+ * permanently in order, and nobody would notice she was never being watched.
+ *
+ * Deliberately not red. She has done nothing wrong; the register is incomplete.
+ */
+const UNMONITORED_COLOUR = "#7c8b93";
+
+/**
  * The map opens where the herd actually is.
  *
  * It used to open on a fixed regional centre and rely on the fit effect to fly
@@ -319,7 +332,12 @@ export function FieldMap({
       if (a.lat == null || a.lng == null) continue;
       seen.add(a.animal_id);
       const breached = a.containment_state === "outside";
-      const colour = breached ? BREACH_COLOUR : (STATUS_COLOUR[a.status] ?? "#00f5a0");
+      const unmonitored = a.parcel_id == null;
+      const colour = breached
+        ? BREACH_COLOUR
+        : unmonitored
+          ? UNMONITORED_COLOUR
+          : (STATUS_COLOUR[a.status] ?? "#00f5a0");
 
       let marker = markers.current.get(a.animal_id);
       if (!marker) {
@@ -684,6 +702,7 @@ function popupHtml(a: MapAnimal) {
     String(s ?? "—").replace(/[&<>"']/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
   const breach = a.containment_state === "outside";
+  const unmonitored = a.parcel_id == null;
   return `
     <div class="hw-popup">
       <div class="hw-popup-tag">${esc(a.tag)}</div>
@@ -691,7 +710,10 @@ function popupHtml(a: MapAnimal) {
       <dl>
         <dt>Owner</dt><dd>${esc(a.owner_name)}</dd>
         <dt>Field</dt><dd>${esc(a.parcel_name)}</dd>
-        <dt>Status</dt><dd${breach ? ' class="bad"' : ""}>${breach ? `outside by ${Math.round(a.distance_m ?? 0)} m` : esc(a.containment_state ?? a.status)}</dd>
+        <dt>Status</dt><dd${breach ? ' class="bad"' : ""}>${
+          breach ? `outside by ${Math.round(a.distance_m ?? 0)} m`
+                 : unmonitored ? "no allocation — not monitored"
+                 : esc(a.containment_state ?? a.status)}</dd>
         <dt>Battery</dt><dd>${esc(a.battery_pct)}%</dd>
         <dt>Fix</dt><dd>${esc(a.last_fix_type)}</dd>
       </dl>

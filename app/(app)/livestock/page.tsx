@@ -128,7 +128,19 @@ export default async function LivestockPage({ searchParams }: { searchParams: Pa
                 <Field label="Sex" value={a.sex} />
                 <Field label="Age" value={a.ageMonths != null ? `${a.ageMonths} mo` : "—"} />
                 <Field label="Weight" value={a.weightKg != null ? `${a.weightKg} kg` : "—"} />
-                <Field label="Zone" value={a.location.zone} />
+                {/*
+                  An animal with no allocation cannot be assessed for
+                  containment, and "Unassigned" in the same grey as every other
+                  field reads as a detail rather than as a gap. It is the
+                  difference between "she is where she should be" and "nobody
+                  can tell", and an enforcement register should not present the
+                  second as the first.
+                */}
+                <Field
+                  label="Zone"
+                  value={a.location.zone === "Unassigned" ? "No allocation" : a.location.zone}
+                  warn={a.location.zone === "Unassigned"}
+                />
                 <Field label="Device" value={a.device.type} />
               </dl>
 
@@ -174,11 +186,11 @@ export default async function LivestockPage({ searchParams }: { searchParams: Pa
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value, warn = false }: { label: string; value: string; warn?: boolean }) {
   return (
     <div>
       <dt className="text-[10px] uppercase tracking-wider text-white/45">{label}</dt>
-      <dd className="mt-0.5 text-white/90">{value}</dd>
+      <dd className={`mt-0.5 ${warn ? "text-amber-200" : "text-white/90"}`}>{value}</dd>
     </div>
   );
 }
