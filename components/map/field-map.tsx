@@ -18,6 +18,7 @@ maplibregl.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 import { supabase, realtimeEnabled } from "@/lib/supabase-browser";
 import type { MapAnimal, MapParcel } from "@/lib/db";
 import { I } from "@/components/ui/icon";
+import { PlaceSearch, type Place } from "@/components/map/place-search";
 
 /**
  * The live field map.
@@ -608,6 +609,27 @@ export function FieldMap({
     });
   }, [draft, drawing, ready]);
 
+  /**
+   * Move the map to a searched place.
+   *
+   * Uses the result's bounding box when it has one, so searching for a suburb
+   * frames the suburb instead of dropping the view on its centre point at an
+   * arbitrary zoom. A road or a single building has no useful box and gets a
+   * close zoom, which is what somebody about to trace a perimeter wants.
+   */
+  const goToPlace = useCallback((place: Place) => {
+    const m = map.current;
+    if (!m) return;
+    if (place.bounds) {
+      m.fitBounds(
+        [[place.bounds.west, place.bounds.south], [place.bounds.east, place.bounds.north]],
+        { padding: 60, maxZoom: 18, duration: 700 },
+      );
+    } else {
+      m.flyTo({ center: [place.lng, place.lat], zoom: 17, duration: 700 });
+    }
+  }, []);
+
   /** Undo the last corner. A misplaced click otherwise meant starting again. */
   const undoPoint = useCallback(() => setDraft((d) => d.slice(0, -1)), []);
 
@@ -664,6 +686,12 @@ export function FieldMap({
           {live ? "Live" : "Static"}
         </span>
       </div>
+
+      {drawing && (
+        <div className="absolute top-16 left-3 z-20">
+          <PlaceSearch onPick={goToPlace} />
+        </div>
+      )}
 
       {drawing && (
         <div className="absolute top-3 right-3 z-10 glass-heavy rounded-2xl p-3 max-w-[240px]">

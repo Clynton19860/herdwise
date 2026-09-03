@@ -127,7 +127,7 @@ export default async function AnalyticsPage() {
                 <Badge tone="aurora" dot>
                   Live
                 </Badge>
-                <Badge tone="cyan">Claude Opus 4.7</Badge>
+                <Badge tone="cyan">Claude Opus 5</Badge>
               </div>
               <p className="text-base sm:text-lg text-white/90 leading-relaxed text-pretty">
                 {briefing}

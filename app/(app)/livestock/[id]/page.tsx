@@ -10,6 +10,7 @@ import { StatusBadge, BatteryBar } from "@/components/app/indicators";
 import { getAnimal, getHealthRecords, getIncidents, getMapParcels, getOwner } from "@/lib/db";
 import { EditRecord } from "@/components/app/edit-record";
 import { ClaimTag } from "@/components/app/claim-tag";
+import { RemoveAnimal } from "@/components/app/remove-animal";
 
 type Params = Promise<{ id: string }>;
 
@@ -276,6 +277,16 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
             </ul>
           )}
         </GlassCard>
+      </div>
+
+      {/*
+        Kept at the foot of the page and styled as a link rather than a button.
+        Every other control here corrects a record; this one ends it, and the
+        two should not sit side by side in the same row where a mis-click lands
+        on the wrong one.
+      */}
+      <div className="mt-8 pt-6 border-t border-white/8">
+        <RemoveAnimal animalId={animal.id} tag={animal.tag} />
       </div>
     </>
   );

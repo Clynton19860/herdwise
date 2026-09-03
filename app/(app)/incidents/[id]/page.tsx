@@ -128,7 +128,7 @@ export default async function IncidentDetailPage({ params }: { params: Params })
                 <span className="text-xs uppercase tracking-[0.14em] text-white/55">
                   Herdwise AI · Executive summary
                 </span>
-                <Badge tone="aurora">Claude Opus 4.7</Badge>
+                <Badge tone="aurora">Claude Opus 5</Badge>
               </div>
               <p className="text-sm sm:text-[15px] text-white/90 leading-relaxed text-pretty">
                 {aiSummary}

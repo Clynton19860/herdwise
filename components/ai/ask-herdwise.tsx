@@ -325,7 +325,7 @@ export function AskHerdwise({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-semibold tracking-tight">Ask Herdwise</h2>
-                <span className="chip">Claude · Opus 4.7</span>
+                <span className="chip">Claude · Opus 5</span>
               </div>
               <p className="text-[11px] text-white/55 truncate mt-0.5">
                 Live answers across animals, owners, zones and incidents.
