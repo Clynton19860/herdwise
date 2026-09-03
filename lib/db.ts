@@ -931,21 +931,32 @@ export type StaffAccount = {
   passwordHash: string | null;
   tokenVersion: number;
   active: boolean;
+  /**
+   * The human behind the post.
+   *
+   * Permissions are held by people, not by council posts — the same
+   * veterinarian may be a member of a council and of three farms. Null for a
+   * row created before identity was split out, and for a farmer the City has
+   * registered who has never signed in.
+   */
+  personId: string | null;
 };
 
 const STAFF_ACCOUNT_SQL = `
   select s.auth_user_id as id, s.full_name, s.role::text as role, w.name as ward,
-         s.password_hash, s.token_version, s.active, s.email
+         s.password_hash, s.token_version, s.active, s.email, s.person_id
     from staff s left join wards w on w.id = s.ward_id`;
 
 type StaffAccountRow = {
   id: string; full_name: string; role: string; ward: string | null;
-  password_hash: string | null; token_version: number; active: boolean; email: string | null;
+  password_hash: string | null; token_version: number; active: boolean;
+  email: string | null; person_id: string | null;
 };
 
 const toAccount = (r: StaffAccountRow): StaffAccount => ({
   id: r.id, fullName: r.full_name, role: r.role, ward: r.ward,
   passwordHash: r.password_hash, tokenVersion: Number(r.token_version), active: r.active,
+  personId: r.person_id,
 });
 
 /** Case-insensitive: nobody remembers whether they registered with a capital. */
@@ -1529,21 +1540,24 @@ export async function touchPersonLogin(personId: string) {
 export type OwnerAccount = {
   id: string; fullName: string; ward: string | null; phone: string;
   passwordHash: string | null; tokenVersion: number;
+  /** The human behind the record. See {@link StaffAccount.personId}. */
+  personId: string | null;
 };
 
 const OWNER_ACCOUNT_SQL = `
   select o.id, o.full_name, o.phone, w.name as ward,
-         o.password_hash, o.token_version
+         o.password_hash, o.token_version, o.person_id
     from owners o left join wards w on w.id = o.ward_id`;
 
 type OwnerAccountRow = {
   id: string; full_name: string; phone: string; ward: string | null;
-  password_hash: string | null; token_version: number;
+  password_hash: string | null; token_version: number; person_id: string | null;
 };
 
 const toOwnerAccount = (r: OwnerAccountRow): OwnerAccount => ({
   id: r.id, fullName: r.full_name, phone: r.phone, ward: r.ward,
   passwordHash: r.password_hash, tokenVersion: Number(r.token_version),
+  personId: r.person_id,
 });
 
 export async function getOwnerAccountByEmail(email: string): Promise<OwnerAccount | null> {

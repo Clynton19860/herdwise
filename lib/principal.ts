@@ -17,9 +17,23 @@ import {
  * The kind comes from the signed session, not from anything the browser can set.
  */
 export type Principal =
-  | { kind: "staff"; id: string; name: string; role: string; ward: string | null; staff: StaffAccount }
+  | {
+      kind: "staff"; id: string; name: string; role: string; ward: string | null;
+      staff: StaffAccount;
+      /**
+       * The human, as distinct from the post they hold.
+       *
+       * Permissions belong to people: the same veterinarian may be a member of
+       * a council and of three farms, and asking about their council post
+       * would answer the wrong question. Null only for a row that predates
+       * identity being split out.
+       */
+      personId: string | null;
+    }
   | {
       kind: "owner"; id: string; name: string; ward: string | null; owner: OwnerAccount;
+      /** The human behind the record. See the staff variant. */
+      personId: string | null;
       /**
        * The farms this person works on. Empty for somebody newly invited who has
        * not described their place yet — the interface asks them to before
@@ -40,13 +54,17 @@ async function resolve(token: string | undefined): Promise<Principal | null> {
     const farms = await getFarmsFor(owner.id);
     return {
       kind: "owner", id: owner.id, name: owner.fullName, ward: owner.ward, owner,
+      personId: owner.personId,
       farms, farmIds: farms.map((f) => f.id),
     };
   }
 
   const staff = await getStaffById(session.sub);
   if (!staff || !staff.active || staff.tokenVersion !== session.v) return null;
-  return { kind: "staff", id: staff.id, name: staff.fullName, role: staff.role, ward: staff.ward, staff };
+  return {
+    kind: "staff", id: staff.id, name: staff.fullName, role: staff.role,
+    ward: staff.ward, staff, personId: staff.personId,
+  };
 }
 
 /** For server components. */
