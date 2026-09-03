@@ -10,7 +10,7 @@
     "simulator": "node src/simulator.js",
     "usb-watch": "node tools/usb-watch.js",
     "db:reset": "dropdb --if-exists herdwise_dev; createdb herdwise_dev; for f in ../supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -q -d herdwise_dev -f $f || exit 1; done; psql -q -d herdwise_dev -f ../supabase/seed.sql",
-    "db:test": "psql -v ON_ERROR_STOP=1 -d herdwise_dev -f ../supabase/tests/containment_test.sql && psql -v ON_ERROR_STOP=1 -d herdwise_dev -f ../supabase/tests/alerts_test.sql && psql -v ON_ERROR_STOP=1 -d herdwise_dev -f ../supabase/tests/people_test.sql && psql -v ON_ERROR_STOP=1 -d herdwise_dev -f ../supabase/tests/tenants_test.sql",
+    "db:test": "psql -v ON_ERROR_STOP=1 -d herdwise_dev -f ../supabase/tests/containment_test.sql && psql -v ON_ERROR_STOP=1 -d herdwise_dev -f ../supabase/tests/alerts_test.sql && psql -v ON_ERROR_STOP=1 -d herdwise_dev -f ../supabase/tests/people_test.sql && psql -v ON_ERROR_STOP=1 -d herdwise_dev -f ../supabase/tests/tenants_test.sql && psql -v ON_ERROR_STOP=1 -d herdwise_dev -f ../supabase/tests/disclosure_test.sql",
     "server": "node src/server.js"
   },
   "engines": {

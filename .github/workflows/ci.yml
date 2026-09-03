@@ -92,3 +92,8 @@ jobs:
       # belonging to it, and the plan is a ceiling nobody inside can raise.
       - name: Tenancy
         run: $PSQL -f supabase/tests/tenants_test.sql
+      # The disclosure boundary — what a council sees of a farm. The most
+      # consequential line in the product, and the first thing a customer's
+      # lawyer asks to see.
+      - name: Disclosure
+        run: $PSQL -f supabase/tests/disclosure_test.sql
