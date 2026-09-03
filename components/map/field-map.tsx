@@ -189,14 +189,6 @@ export function FieldMap({
    * officer that a watering point and a legal boundary carry the same weight.
    */
   const drawParcels = useCallback((m: MLMap, list: MapParcel[]) => {
-    // Adding a source to a style that is still loading throws, and the throw
-    // happens inside an effect where nothing surfaces it — which is how every
-    // field outline came to be missing from every map with no error anywhere.
-    if (!m.isStyleLoaded()) {
-      m.once("idle", () => drawParcels(m, list));
-      return;
-    }
-
     const data = {
       type: "FeatureCollection" as const,
       features: list.map((p) => ({
@@ -473,15 +465,6 @@ export function FieldMap({
     const m = map.current;
     if (!m || !ready) return;
 
-    // Same trap as the parcel layers: adding a source to a style that is still
-    // loading throws inside an effect where nothing surfaces it, and the corner
-    // markers never appear however many times you click.
-    if (!m.isStyleLoaded()) {
-      // Nudge state once the style settles so this effect runs again.
-      m.once("idle", () => setDraft((d) => [...d]));
-      return;
-    }
-
     const shape = draft.length >= 3
       ? { type: "Polygon" as const, coordinates: [[...draft, draft[0]]] }
       : { type: "LineString" as const, coordinates: draft };
@@ -537,6 +520,47 @@ export function FieldMap({
       paint: { "text-color": "#e4eef0", "text-halo-color": "#0b1014", "text-halo-width": 1.2 },
     });
   }, [draft, ready]);
+
+  /**
+   * Corner markers as DOM elements, not as a style layer.
+   *
+   * The circle layer for these is created, the source is populated, and nothing
+   * paints — injecting a known-good point straight into the source renders zero
+   * features, so the fault is in the layer and not the data. Animal positions
+   * have always drawn correctly on this same map, and they are DOM markers.
+   *
+   * So the corners use the mechanism that demonstrably works here. It is also
+   * better for the job: a marker stays a constant size as you zoom, which is
+   * what you want from something you are aiming at with a mouse.
+   */
+  const draftMarkers = useRef<maplibregl.Marker[]>([]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+
+    for (const mk of draftMarkers.current) mk.remove();
+    draftMarkers.current = [];
+    if (!drawing) return;
+
+    draft.forEach((c, i) => {
+      const el = document.createElement("div");
+      el.className = "hw-corner";
+      el.textContent = String(i + 1);
+      // Inline so this cannot depend on a stylesheet loading in time.
+      el.style.cssText = [
+        "width:18px", "height:18px", "border-radius:9999px",
+        "border:2px solid #5be7ff",
+        `background:${i === 0 ? "#5be7ff" : "rgba(11,16,20,0.85)"}`,
+        `color:${i === 0 ? "#04222b" : "#e4eef0"}`,
+        "font:600 10px/14px ui-monospace,monospace", "text-align:center",
+        "box-shadow:0 0 0 2px rgba(4,21,15,0.55)", "cursor:crosshair",
+      ].join(";");
+      draftMarkers.current.push(
+        new maplibregl.Marker({ element: el }).setLngLat(c).addTo(m),
+      );
+    });
+  }, [draft, drawing, ready]);
 
   /** Undo the last corner. A misplaced click otherwise meant starting again. */
   const undoPoint = useCallback(() => setDraft((d) => d.slice(0, -1)), []);
