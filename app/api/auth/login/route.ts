@@ -1,19 +1,28 @@
-import { getOwnerAccountByEmail, getStaffByEmail } from "@/lib/db";
-import { CODE_TTL_MINUTES, issueChallenge, verifyPassword } from "@/lib/auth";
-import { sendSignInCode } from "@/lib/supabase-auth";
+import {
+  getOwnerAccountByEmail, getStaffByEmail, touchLastLogin, touchOwnerLogin,
+} from "@/lib/db";
+import { SESSION_COOKIE, issueSession, sessionCookieOptions, verifyPassword } from "@/lib/auth";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Step one: verify the password, then have Supabase send the six-digit code.
+ * Sign in with a password.
  *
- * The response is deliberately identical whether or not the account exists and
- * whether or not the password was right — including when sending fails. Anything
- * else turns this endpoint into a way to discover which email addresses are
- * registered, and a wrong password would be distinguishable from a wrong
- * address. A caller learns nothing until they present a correct code.
+ * A six-digit code used to stand between the password and the session. It has
+ * been removed from this route deliberately: an officer signs in from a shared
+ * ward office several times a day, and Supabase's built-in mailer allows two
+ * messages an hour — so the second factor was locking people out of their own
+ * platform far more often than it was stopping anybody.
+ *
+ * Codes remain where they are worth the friction and are sent at most once:
+ * accepting an invitation, resetting a password, and changing an email address.
+ * Those are the moments an account can be taken over; a routine sign-in is not.
+ *
+ * The failure message is identical for an unknown address and a wrong password,
+ * so this cannot be used to discover who holds an account. It cannot hide that
+ * *some* attempt failed — the session is the tell — but it never says which.
  */
 export async function POST(req: Request) {
   const limit = rateLimit(`login:${callerKey(req)}`, { limit: 8, windowSeconds: 300 });
@@ -42,21 +51,36 @@ export async function POST(req: Request) {
   const staff = await getStaffByEmail(email);
   const owner = staff ? null : await getOwnerAccountByEmail(email);
 
-  const ok = staff?.active
-    ? await verifyPassword(password, staff.passwordHash)
-    : owner
-      ? await verifyPassword(password, owner.passwordHash)
-      : false;
+  const principal = staff?.active ? staff : owner;
+  const ok = principal ? await verifyPassword(password, principal.passwordHash) : false;
 
-  if (ok) {
-    // Failures are logged, never returned. Supabase's own mailer allows two
-    // messages an hour, so a rejection here is most often that ceiling rather
-    // than anything about the address.
-    await sendSignInCode(email);
+  if (!ok || !principal) {
+    return Response.json(
+      { error: "That email and password do not match." },
+      { status: 401 },
+    );
   }
 
-  return Response.json({
-    challenge: issueChallenge(email),
-    expiresInMinutes: CODE_TTL_MINUTES,
+  if (staff) await touchLastLogin(staff.id);
+  else if (owner) await touchOwnerLogin(owner.id);
+
+  // Staff land on the ward overview; an owner lands on his own herd. Told to the
+  // client rather than guessed, so the redirect cannot send a farmer to a page
+  // he is not allowed to open.
+  const res = Response.json({
+    ok: true,
+    name: principal.fullName,
+    home: staff ? "/dashboard" : "/my",
   });
+  const token = issueSession(
+    principal.id, principal.tokenVersion, staff ? "staff" : "owner",
+  );
+  const o = sessionCookieOptions();
+  res.headers.append(
+    "set-cookie",
+    `${SESSION_COOKIE}=${token}; Path=${o.path}; Max-Age=${o.maxAge}; HttpOnly; SameSite=Lax${
+      o.secure ? "; Secure" : ""
+    }`,
+  );
+  return res;
 }

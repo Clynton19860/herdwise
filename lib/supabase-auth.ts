@@ -4,15 +4,15 @@ import { createClient } from "@supabase/supabase-js";
 /**
  * Supabase Auth, used only to deliver and check the six-digit code.
  *
- * Identity still lives in `staff`, and the session is still this app's own
- * signed cookie. What Supabase provides is the part that would otherwise need a
- * mail account: it generates the code, sends it through its own mailer using the
+ * Identity still lives in `staff`, and the session is this app's own signed
+ * cookie. What Supabase provides is the part that would otherwise need a mail
+ * account: it generates the code, sends it through its own mailer using the
  * branded templates in `supabase/templates`, and verifies it. No third-party
  * SMTP, no new dependency, and one place where the email design lives.
  *
- * The anon key is correct here: this runs after the password has already been
- * checked against `staff`, so the code is being sent to somebody who has proven
- * they know the password.
+ * Codes guard account *changes* — accepting an invitation, resetting a
+ * password, changing an address — and not routine sign-in, which is password
+ * only. See `app/api/auth/login/route.ts` for why.
  *
  * Worth knowing: Supabase's built-in mailer allows two emails an hour by
  * default. That is fine for a pilot and not for a ward. Raising it means
@@ -27,29 +27,12 @@ function client() {
   });
 }
 
-/** Sends the branded six-digit sign-in code. */
-export async function sendSignInCode(email: string): Promise<{ ok: boolean; reason?: string }> {
-  const { error } = await client().auth.signInWithOtp({
-    email,
-    options: {
-      // The person already exists in `staff`; this creates their matching
-      // Supabase identity the first time they sign in.
-      shouldCreateUser: true,
-    },
-  });
-  if (error) {
-    console.error(`[auth] could not send code to ${email}: ${error.message}`);
-    return { ok: false, reason: error.message };
-  }
-  return { ok: true };
-}
-
 /**
  * Sends the branded password-reset code.
  *
  * Which Supabase call is made decides which template is sent — this one reaches
- * `reset-password.html`, `sendSignInCode` reaches `magic-link.html`, and
- * `sendInviteCode` reaches `sign-up.html`. They are not interchangeable.
+ * `reset-password.html` and `sendInviteCode` reaches `sign-up.html`. They are
+ * not interchangeable: a recovery code cannot complete a sign-up.
  */
 export async function sendResetCode(email: string): Promise<{ ok: boolean }> {
   const { error } = await client().auth.resetPasswordForEmail(email);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { I } from "@/components/ui/icon";
@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 /**
- * Two steps: a password, then a six-digit code.
+ * Email and password, and that is the whole sign-in.
  *
- * The second step is the point — a leaked password on its own is not enough to
- * get in. The form keeps the challenge token the server issued rather than the
- * email or an id, so nothing the browser holds can be edited into somebody
- * else's sign-in.
+ * This used to ask for a six-digit code as a second step. It was removed
+ * because the mailer allows two messages an hour, so somebody signing in three
+ * times in a morning — which is what a ward office actually does — was locked
+ * out by their own security. Codes still guard the moments that matter:
+ * accepting an invitation, resetting a password, changing an email.
  */
 export function LoginForm({
   testEmail,
@@ -26,20 +27,12 @@ export function LoginForm({
   const params = useSearchParams();
   const next = params.get("next") || "/dashboard";
 
-  const [step, setStep] = useState<"password" | "code">("password");
   const [email, setEmail] = useState(testEmail ?? "");
   const [password, setPassword] = useState(testPassword ?? "");
-  const [code, setCode] = useState("");
-  const [challenge, setChallenge] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const codeRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (step === "code") codeRef.current?.focus();
-  }, [step]);
-
-  async function submitPassword(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
@@ -52,30 +45,6 @@ export function LoginForm({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error ?? "Could not sign in.");
-        return;
-      }
-      setChallenge(data.challenge);
-      setStep("code");
-    } catch {
-      setError("Could not reach the server.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submitCode(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/auth/verify", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ challenge, code }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.error ?? "That code is not right.");
         return;
       }
       // `next` only applies when it is a page this principal can open; the
@@ -104,111 +73,60 @@ export function LoginForm({
       </div>
 
       <div className="glass-solid rounded-3xl p-6 sm:p-7">
-        {step === "password" ? (
-          <form onSubmit={submitPassword} className="space-y-4">
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight">Sign in</h1>
-              <p className="text-xs text-white/55 mt-1">
-                We&rsquo;ll send a six-digit code to confirm it&rsquo;s you.
-              </p>
-            </div>
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight">Sign in</h1>
+            <p className="text-xs text-white/55 mt-1">
+              Use the email and password for your Herdwise account.
+            </p>
+          </div>
 
-            <label className="block">
-              <span className="text-xs text-white/55">Email</span>
-              <input
-                type="email"
-                autoComplete="username"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1.5 w-full h-11 rounded-2xl px-3.5 glass-thin bg-transparent outline-none text-sm
-                  focus:ring-2 focus:ring-emerald-400/40"
-              />
-            </label>
+          <label className="block">
+            <span className="text-xs text-white/55">Email</span>
+            <input
+              type="email"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1.5 w-full h-11 rounded-2xl px-3.5 glass-thin bg-transparent outline-none text-sm
+                focus:ring-2 focus:ring-emerald-400/40"
+            />
+          </label>
 
-            <label className="block">
-              <span className="text-xs text-white/55">Password</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1.5 w-full h-11 rounded-2xl px-3.5 glass-thin bg-transparent outline-none text-sm
-                  focus:ring-2 focus:ring-emerald-400/40"
-              />
-            </label>
+          <label className="block">
+            <span className="text-xs text-white/55">Password</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1.5 w-full h-11 rounded-2xl px-3.5 glass-thin bg-transparent outline-none text-sm
+                focus:ring-2 focus:ring-emerald-400/40"
+            />
+          </label>
 
-            {error && (
-              <p className="text-sm text-rose-200 flex items-start gap-2">
-                <I.Alert size={14} className="mt-0.5 shrink-0" />
-                {error}
-              </p>
-            )}
+          {error && (
+            <p className="text-sm text-rose-200 flex items-start gap-2">
+              <I.Alert size={14} className="mt-0.5 shrink-0" />
+              {error}
+            </p>
+          )}
 
-            <Button type="submit" variant="primary" className="w-full" disabled={busy}>
-              {busy ? "Checking…" : "Continue"}
-            </Button>
+          <Button type="submit" variant="primary" className="w-full" disabled={busy}>
+            {busy ? "Signing in…" : "Sign in"}
+          </Button>
 
-            <div className="flex items-center justify-between text-xs text-white/45 pt-1">
-              <Link href="/reset" className="hover:text-white/75 transition-colors">
-                Forgot your password?
-              </Link>
-              <Link href="/setup" className="hover:text-white/75 transition-colors">
-                Have an invitation?
-              </Link>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={submitCode} className="space-y-4">
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight">Enter your code</h1>
-              <p className="text-xs text-white/55 mt-1">
-                We&rsquo;ve emailed a six-digit code to {email}. It&rsquo;s valid for ten
-                minutes.
-              </p>
-            </div>
-
-            <label className="block">
-              <span className="text-xs text-white/55">Verification code</span>
-              <input
-                ref={codeRef}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                required
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                className="mt-1.5 w-full h-14 rounded-2xl px-3.5 glass-thin bg-transparent outline-none
-                  text-2xl font-mono tracking-[0.45em] text-center focus:ring-2 focus:ring-emerald-400/40"
-              />
-            </label>
-
-            {error && (
-              <p className="text-sm text-rose-200 flex items-start gap-2">
-                <I.Alert size={14} className="mt-0.5 shrink-0" />
-                {error}
-              </p>
-            )}
-
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full"
-              disabled={busy || code.length !== 6}
-            >
-              {busy ? "Verifying…" : "Sign in"}
-            </Button>
-
-            <button
-              type="button"
-              onClick={() => { setStep("password"); setCode(""); setError(null); }}
-              className="w-full text-xs text-white/55 hover:text-white/85 transition-colors"
-            >
-              Use a different email
-            </button>
-          </form>
-        )}
+          <div className="flex items-center justify-between text-xs text-white/45 pt-1">
+            <Link href="/reset" className="hover:text-white/75 transition-colors">
+              Forgot your password?
+            </Link>
+            <Link href="/setup" className="hover:text-white/75 transition-colors">
+              Have an invitation?
+            </Link>
+          </div>
+        </form>
       </div>
 
       {testEmail && (
@@ -219,8 +137,7 @@ export function LoginForm({
           <div className="font-mono">{testEmail}</div>
           <div className="font-mono">{testPassword}</div>
           <p className="mt-2 text-white/45 leading-snug">
-            Shown because AUTH_SHOW_CODE is set. Unset it and these disappear. The
-            six-digit code always arrives by email.
+            Shown because AUTH_SHOW_CODE is set. Unset it and these disappear.
           </p>
         </div>
       )}
