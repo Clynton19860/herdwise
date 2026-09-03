@@ -290,7 +290,12 @@ function toGeofence(r: ZoneRow): Geofence {
     // Normalised to its own extent, so the preview shows the shape rather than
     // its position in a city-sized box it may not even be inside.
     thumbnail: polygonToThumbnail(ring),
-    hectares: Math.round(Number(r.area_ha)),
+    // A homestead paddock is a fifth of a hectare, and rounding to whole
+    // numbers labelled every small zone "0 hectares" — which reads as an error
+    // in the drawing rather than as a small field.
+    hectares: Number(r.area_ha) >= 10
+      ? Math.round(Number(r.area_ha))
+      : Math.round(Number(r.area_ha) * 100) / 100,
     capacity: r.capacity ?? 0,
     occupancy: Number(r.occupancy),
   };
@@ -535,12 +540,19 @@ export type MapAnimal = {
 };
 
 export type MapParcel = {
-  id: string; reference: string; name: string; tenure: string;
-  area_ha: string; tolerance_m: number; breach_dwell_s: number;
+  id: string; reference: string | null; name: string; tenure: string | null;
+  area_ha: string; tolerance_m: number | null; breach_dwell_s: number | null;
   ward: string | null; owner_name: string | null;
   /** PostGIS ST_AsGeoJSON output — a Polygon, ready for MapLibre. */
   geojson: GeoJSON.Polygon;
   animal_count: string;
+  /**
+   * An allocation is the ground an animal is permitted on, and is what
+   * containment is judged against. A zone is a management area an officer drew.
+   * The map draws both but must not imply they mean the same thing.
+   */
+  kind: "allocation" | "zone";
+  zone_type: string | null;
 };
 
 /**
@@ -1295,6 +1307,34 @@ export async function getDeviceByImei(imei: string) {
   const rows = await query<{ id: string; animal_id: string | null }>(
     `select id, animal_id from devices where imei = $1`, [imei.trim()]);
   return rows[0] ?? null;
+}
+
+/**
+ * Remove an animal from the register.
+ *
+ * Safe to do because of how the foreign keys are declared, which is worth
+ * stating rather than trusting from memory. Positions and incidents are
+ * `on delete set null`, so telemetry already recorded and any enforcement case
+ * raised against the animal both survive it — a council cannot erase its own
+ * audit trail by deleting a record. Containment state and health records
+ * cascade, because neither means anything without the animal.
+ *
+ * The device is `on delete set null` too, so the ear tag releases itself. It is
+ * released explicitly here anyway, so the IMEI can be shown to whoever pressed
+ * the button — the tag is a physical object somebody now has to collect.
+ */
+export async function deleteAnimal(animalId: string): Promise<{
+  tag: string; releasedImei: string | null;
+} | null> {
+  const released = await query<{ imei: string }>(
+    `update devices set animal_id = null where animal_id = $1::uuid returning imei`,
+    [asUuid(animalId)]);
+
+  const rows = await query<{ tag: string }>(
+    `delete from animals where id = $1::uuid returning tag`, [asUuid(animalId)]);
+
+  if (!rows[0]) return null;
+  return { tag: rows[0].tag, releasedImei: released[0]?.imei ?? null };
 }
 
 /* ------------------------------------------------------- owner accounts */

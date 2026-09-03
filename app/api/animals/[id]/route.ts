@@ -1,4 +1,4 @@
-import { animalBelongsTo, updateAnimal } from "@/lib/db";
+import { animalBelongsTo, deleteAnimal, updateAnimal } from "@/lib/db";
 import { unauthorized } from "@/lib/api-auth";
 import { principalFromRequest } from "@/lib/principal";
 
@@ -65,4 +65,42 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     console.error("[animals] update failed:", m);
     return Response.json({ error: "Could not save the change." }, { status: 500 });
   }
+}
+
+/**
+ * Remove an animal from the register, releasing its ear tag.
+ *
+ * Restricted to an administrator on the council side, and to the owner for
+ * their own animals. A field officer can correct a record but not erase one:
+ * removing an animal from a municipal register is a different kind of act from
+ * fixing a mistyped colour, and the two should not share a permission.
+ */
+export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const me = await principalFromRequest(req);
+  if (!me) return unauthorized();
+
+  const { id } = await ctx.params;
+
+  if (me.kind === "owner") {
+    if (!(await animalBelongsTo(id, me.id))) {
+      return Response.json({ error: "That is not one of your animals." }, { status: 403 });
+    }
+  } else if (me.role !== "admin") {
+    return Response.json(
+      { error: "Only an administrator can remove an animal from the register." },
+      { status: 403 },
+    );
+  }
+
+  const removed = await deleteAnimal(id);
+  if (!removed) return Response.json({ error: "No such animal." }, { status: 404 });
+
+  return Response.json({
+    ok: true,
+    tag: removed.tag,
+    releasedImei: removed.releasedImei,
+    note: removed.releasedImei
+      ? `${removed.tag} removed. Tag ${removed.releasedImei} is now unassigned.`
+      : `${removed.tag} removed.`,
+  });
 }

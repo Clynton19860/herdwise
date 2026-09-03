@@ -180,42 +180,97 @@ export function FieldMap({
 
   /* ------------------------------------------------ parcels */
 
+  /**
+   * Allocations and management zones, drawn together but not identically.
+   *
+   * An allocation is the ground an animal is permitted on and is what a breach
+   * is measured against; a zone is something an officer drew — grazing, buffer,
+   * restricted, watering, quarantine. Colouring them the same would tell an
+   * officer that a watering point and a legal boundary carry the same weight.
+   */
   const drawParcels = useCallback((m: MLMap, list: MapParcel[]) => {
+    // Adding a source to a style that is still loading throws, and the throw
+    // happens inside an effect where nothing surfaces it — which is how every
+    // field outline came to be missing from every map with no error anywhere.
+    if (!m.isStyleLoaded()) {
+      m.once("idle", () => drawParcels(m, list));
+      return;
+    }
+
     const data = {
       type: "FeatureCollection" as const,
       features: list.map((p) => ({
         type: "Feature" as const,
-        properties: { id: p.id, name: p.name, ha: Number(p.area_ha), animals: Number(p.animal_count) },
+        properties: {
+          id: p.id, name: p.name, ha: Number(p.area_ha),
+          animals: Number(p.animal_count),
+          kind: p.kind ?? "allocation",
+          zone: (p.zone_type ?? "").toLowerCase(),
+        },
         geometry: p.geojson as GeoJSON.Polygon,
       })),
     };
     const src = m.getSource("parcels") as maplibregl.GeoJSONSource | undefined;
     if (src) { src.setData(data); return; }
 
+    // Allocation green, then one hue per zone type so a restricted area cannot
+    // be mistaken for a grazing one at a glance.
+    const colour: maplibregl.ExpressionSpecification = [
+      "match", ["get", "zone"],
+      "grazing", "#00f5a0",
+      "buffer", "#ffd57a",
+      "restricted", "#ff8095",
+      "watering", "#5be7ff",
+      "quarantine", "#c9a2ff",
+      "#00f5a0",
+    ];
+
     m.addSource("parcels", { type: "geojson", data });
     m.addLayer({
       id: "parcel-fill", type: "fill", source: "parcels",
-      paint: { "fill-color": "#00f5a0", "fill-opacity": 0.12 },
+      paint: { "fill-color": colour, "fill-opacity": 0.14 },
     });
     m.addLayer({
       id: "parcel-line", type: "line", source: "parcels",
-      paint: { "line-color": "#00f5a0", "line-width": 2, "line-opacity": 0.85 },
+      paint: {
+        "line-color": colour,
+        "line-width": 2.5,
+        "line-opacity": 0.95,
+        // A drawn zone is dashed; a legal allocation is solid.
+        "line-dasharray": ["case", ["==", ["get", "kind"], "zone"], ["literal", [3, 2]], ["literal", [1, 0]]],
+      },
     });
     m.addLayer({
       id: "parcel-label", type: "symbol", source: "parcels",
       layout: {
-        "text-field": ["concat", ["get", "name"], "\n", ["to-string", ["round", ["get", "ha"]]], " ha"],
+        // Small fields are common — a homestead paddock is a fifth of a hectare
+        // — and rounding to whole hectares labelled every one of them "0 ha".
+        "text-field": [
+          "concat", ["get", "name"], "\n",
+          ["case",
+            [">=", ["get", "ha"], 10], ["to-string", ["round", ["get", "ha"]]],
+            ["to-string", ["/", ["round", ["*", ["get", "ha"], 100]], 100]]],
+          " ha",
+        ],
         "text-size": 11, "text-anchor": "center", "text-allow-overlap": false,
       },
       paint: { "text-color": "#eafbf1", "text-halo-color": "#04150f", "text-halo-width": 1.5 },
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ------------------------------------------------ 2D / 3D */
 
+  const appliedMode = useRef<"2d" | "3d">("2d");
+
   useEffect(() => {
     const m = map.current;
     if (!m || !ready) return;
+    // The map is constructed with the 2D style, so re-applying it on mount tore
+    // down the sources the parcels effect had just added and raced the reload.
+    if (appliedMode.current === mode) return;
+    appliedMode.current = mode;
+
     m.setStyle(baseStyle(mode));
     m.once("styledata", () => {
       if (mode === "3d") {
@@ -417,6 +472,15 @@ export function FieldMap({
   useEffect(() => {
     const m = map.current;
     if (!m || !ready) return;
+
+    // Same trap as the parcel layers: adding a source to a style that is still
+    // loading throws inside an effect where nothing surfaces it, and the corner
+    // markers never appear however many times you click.
+    if (!m.isStyleLoaded()) {
+      // Nudge state once the style settles so this effect runs again.
+      m.once("idle", () => setDraft((d) => [...d]));
+      return;
+    }
 
     const shape = draft.length >= 3
       ? { type: "Polygon" as const, coordinates: [[...draft, draft[0]]] }
