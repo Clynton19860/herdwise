@@ -289,7 +289,6 @@ export function FieldMap({
       },
       paint: { "text-color": "#eafbf1", "text-halo-color": "#04150f", "text-halo-width": 1.5 },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ------------------------------------------------ 2D / 3D */

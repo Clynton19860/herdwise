@@ -32,7 +32,10 @@ export function PlaceSearch({ onPick }: { onPick: (place: Place) => void }) {
 
   useEffect(() => {
     const term = q.trim();
-    if (term.length < 3) { setResults(null); setError(null); return; }
+    // Clearing happens in the change handler rather than here: setting state
+    // synchronously inside an effect triggers a second render before the first
+    // has painted, for a result the handler already knew.
+    if (term.length < 3) return;
 
     // Cancel the previous search when another letter arrives, so a slow reply
     // cannot land after a faster one and show results for an older query.
@@ -78,7 +81,11 @@ export function PlaceSearch({ onPick }: { onPick: (place: Place) => void }) {
         />
         <input
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value;
+            setQ(v);
+            if (v.trim().length < 3) { setResults(null); setError(null); }
+          }}
           placeholder="Find a suburb, road or landmark…"
           className="w-full h-9 pl-9 pr-3 rounded-2xl glass-heavy bg-transparent outline-none
             text-xs placeholder:text-white/40 focus:ring-2 focus:ring-emerald-400/40"
