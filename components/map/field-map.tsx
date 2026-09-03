@@ -4,6 +4,17 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { Map as MLMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+
+/**
+ * Tell MapLibre where its worker is, because it cannot work it out once bundled.
+ *
+ * It derives the location from `import.meta.url` and gives up unless that is an
+ * http(s) URL — which it is not inside a Next bundle. The worker is then never
+ * created, and every GeoJSON source silently renders nothing while raster tiles
+ * and DOM markers keep working. `scripts/copy-maplibre-worker.mjs` puts the file
+ * under `public/` at build time so this path resolves.
+ */
+maplibregl.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 import { supabase, realtimeEnabled } from "@/lib/supabase-browser";
 import type { MapAnimal, MapParcel } from "@/lib/db";
 import { I } from "@/components/ui/icon";
@@ -72,6 +83,21 @@ function openingView(animals: MapAnimal[], parcels: MapParcel[]) {
 function baseStyle(mode: Mode): maplibregl.StyleSpecification {
   return {
     version: 8,
+    /**
+     * Required by any layer that draws text, and its absence is why nothing
+     * drawn on this map has ever appeared.
+     *
+     * Both `parcel-label` and `draft-vertex-label` are symbol layers with a
+     * `text-field`. With no glyph source MapLibre cannot lay the text out, and
+     * the failure is not confined to the text: it fails the whole source's tile
+     * parse, so the fill, line and circle layers reading that same source render
+     * nothing either. Raster basemap tiles need no glyphs and drew fine, and DOM
+     * markers are not part of the style at all — which is why animal positions
+     * always worked while field boundaries never did.
+     *
+     * Open, keyless, and the fontstack below is one it actually serves.
+     */
+    glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
     sources: {
       satellite: {
         type: "raster",
@@ -235,6 +261,7 @@ export function FieldMap({
     m.addLayer({
       id: "parcel-label", type: "symbol", source: "parcels",
       layout: {
+        "text-font": ["Noto Sans Regular"],
         // Small fields are common — a homestead paddock is a fifth of a hectare
         // — and rounding to whole hectares labelled every one of them "0 ha".
         "text-field": [
@@ -512,6 +539,7 @@ export function FieldMap({
       id: "draft-vertex-label", type: "symbol", source: "draft",
       filter: ["==", ["get", "role"], "vertex"],
       layout: {
+        "text-font": ["Noto Sans Regular"],
         "text-field": ["to-string", ["get", "n"]],
         "text-size": 10,
         "text-offset": [0, -1.4],

@@ -60,3 +60,6 @@ supabase/real-device.sql
 # anything that identifies hardware. The README explains why.
 /local/*
 !/local/README.md
+
+# Copied from node_modules at build time by scripts/copy-maplibre-worker.mjs
+public/maplibre/
