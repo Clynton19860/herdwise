@@ -24,6 +24,18 @@ function minutesSince(iso: string | null): number | null {
   return Math.round((Date.now() - new Date(iso).getTime()) / 60000);
 }
 
+/**
+ * A position older than half an hour is no longer where the animal is.
+ *
+ * Cattle move. A fix from last night tells you where she slept, and a council
+ * acting on it would go to the wrong place — so the age is called out rather
+ * than left for the reader to work out from a timestamp.
+ */
+function stale(iso: string | null): boolean {
+  const m = minutesSince(iso);
+  return m === null || m > 30;
+}
+
 /** "now", "4 min", "3 h", "2 d" — a rollout is watched in minutes, not dates. */
 function ago(iso: string | null): string {
   const m = minutesSince(iso);
@@ -98,7 +110,7 @@ export default async function TagsPage() {
                   <th className="px-4 py-3 font-medium">Battery</th>
                   <th className="px-4 py-3 font-medium">Signal</th>
                   <th className="px-4 py-3 font-medium">Last contact</th>
-                  <th className="px-4 py-3 font-medium">GPS</th>
+                  <th className="px-4 py-3 font-medium">Last position</th>
                   <th className="px-4 py-3 font-medium">On</th>
                 </tr>
               </thead>
@@ -139,10 +151,21 @@ export default async function TagsPage() {
                           <span className="text-white/35">no fix yet</span>
                         ) : (
                           <div>
-                            <div className="tabular-nums">
-                              {t.satellites != null ? `${t.satellites} sats` : "fixed"}
+                            {/*
+                              The age of the position, not just that there is
+                              one. A tag reports health every few seconds and a
+                              position only when it has satellites, so "last
+                              contact 1 min ago" beside a pin from last night is
+                              two true facts that read as one false one. An
+                              officer acting on a stale position is the failure
+                              this column exists to prevent.
+                            */}
+                            <div className={`tabular-nums ${stale(t.lastFixAt) ? "text-amber-200" : ""}`}>
+                              {ago(t.lastFixAt)}
+                              {stale(t.lastFixAt) && " old"}
                             </div>
                             <div className="text-[11px] text-white/40 tabular-nums">
+                              {t.satellites != null ? `${t.satellites} sats · ` : ""}
                               {t.fixes} position{t.fixes === 1 ? "" : "s"}
                             </div>
                           </div>
