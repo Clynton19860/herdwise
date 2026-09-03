@@ -1,5 +1,6 @@
 import { createParcel, getMapParcels } from "@/lib/db";
 import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { permit } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -14,12 +15,18 @@ type Body = { name?: string; tenure?: string; ring?: [number, number][] };
  */
 /** Existing allocations, so a new zone can be drawn in context. */
 export async function GET(req: Request) {
+  const allowed = await permit(req, "read", "geofences");
+  if (!allowed.ok) return allowed.response;
+
   if (!(await requireStaff(req))) return unauthorized();
 
   return Response.json(await getMapParcels(), { headers: { "cache-control": "no-store" } });
 }
 
 export async function POST(req: Request) {
+  const allowed = await permit(req, "write", "geofences");
+  if (!allowed.ok) return allowed.response;
+
   if (!(await requireStaff(req))) return unauthorized();
 
   let body: Body;

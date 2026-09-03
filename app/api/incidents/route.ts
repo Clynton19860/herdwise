@@ -1,6 +1,5 @@
 import { animalBelongsTo, createIncident } from "@/lib/db";
-import { unauthorized } from "@/lib/api-auth";
-import { principalFromRequest } from "@/lib/principal";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,8 +14,9 @@ const SEVERITIES = new Set(["low", "medium", "high", "critical"]);
  * invent one with Math.random(), which can collide and carries no ordering.
  */
 export async function POST(req: Request) {
-  const me = await principalFromRequest(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "write", "incidents");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me;
 
   let b: Record<string, string | null | undefined>;
   try { b = await req.json(); } catch { return bad("Invalid request."); }

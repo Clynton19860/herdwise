@@ -48,6 +48,8 @@ test("a field officer records what they observe but cannot change who has access
   assert.equal(can(officer, "write", "people"), false);
   assert.equal(can(officer, "write", "settings"), false);
   assert.equal(can(officer, "write", "tags"), false, "commissioning is not their job");
+  assert.equal(can(officer, "write", "health"), false, "a clinical record is a vet's statement");
+  assert.equal(can(officer, "read", "health"), true, "but they must be able to read one");
 });
 
 test("a herdsman works with animals, not with the records about them", () => {

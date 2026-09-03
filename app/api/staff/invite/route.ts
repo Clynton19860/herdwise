@@ -1,6 +1,6 @@
 import { createStaff, getStaffByEmail } from "@/lib/db";
 import { sendInviteCode } from "@/lib/supabase-auth";
-import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,8 +16,15 @@ const ROLES = new Set(["officer", "vet", "admin"]);
  * invitation had been sent.
  */
 export async function POST(req: Request) {
-  const me = await requireStaff(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "write", "people");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me.kind === "staff" ? allowed.me.staff : null;
+  if (!me) {
+    return Response.json(
+      { error: "This is a council function." },
+      { status: 403 },
+    );
+  }
   if (me.role !== "admin") {
     return Response.json({ error: "Only administrators can add staff." }, { status: 403 });
   }

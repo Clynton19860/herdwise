@@ -1,6 +1,5 @@
-import { unauthorized } from "@/lib/api-auth";
-import { principalFromRequest } from "@/lib/principal";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,8 +25,8 @@ const NOMINATIM = "https://nominatim.openstreetmap.org/search";
 const COUNTRIES = "zw,za";
 
 export async function GET(req: Request) {
-  const me = await principalFromRequest(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "read", "geofences");
+  if (!allowed.ok) return allowed.response;
 
   // Nominatim's policy is one call a second. This is per signed-in caller,
   // which is stricter than the policy for any single person and keeps a stuck

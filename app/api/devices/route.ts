@@ -2,16 +2,16 @@ import {
   animalBelongsTo, assignDevice, deviceClaimableBy,
   getClaimableDevices, getUnclaimedDevices,
 } from "@/lib/db";
-import { unauthorized } from "@/lib/api-auth";
-import { principalFromRequest } from "@/lib/principal";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** Tags reporting to the gateway that belong to no animal yet. */
 export async function GET(req: Request) {
-  const me = await principalFromRequest(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "read", "tags");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me;
   // A farmer sees unclaimed tags and his own. Another farmer's tags are not his
   // to see, let alone to take.
   return Response.json(
@@ -27,8 +27,9 @@ export async function GET(req: Request) {
  * positions stays attached to the animal it was on at the time.
  */
 export async function POST(req: Request) {
-  const me = await principalFromRequest(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "write", "tags");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me;
   if (me.kind === "staff" && me.role !== "officer" && me.role !== "admin") {
     return Response.json({ error: "You cannot assign tags." }, { status: 403 });
   }

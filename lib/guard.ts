@@ -1,5 +1,6 @@
 import "server-only";
 import { getGrants, tenantOf, type TenantGrant } from "@/lib/db";
+import { principalFromRequest, type Principal } from "@/lib/principal";
 import { can, grantFor, refusal, type Action, type Component } from "@/lib/permissions";
 
 /**
@@ -87,4 +88,31 @@ export async function mayOn(
 
 function denied(message: string, status: number): Denied {
   return { ok: false, response: Response.json({ error: message }, { status }) };
+}
+
+/**
+ * The whole check, for a route that has a request and wants an answer.
+ *
+ * Resolves the session, finds the person behind it, and asks whether they may
+ * do this. Returns the principal too, because a route that is allowed to act
+ * almost always needs to know who is acting — an incident records the officer
+ * who raised it, and an owner-scoped query takes their id.
+ *
+ * Added alongside each route's existing checks rather than replacing them. The
+ * ownership tests already there — `animalBelongsTo` and its like — answer a
+ * different question ("is this yours?") from the one here ("may you?"), and a
+ * system that decides both separately is harder to get wrong than one that
+ * collapses them into a single call.
+ */
+export async function permit(
+  req: Request,
+  action: Action,
+  component: Component,
+): Promise<{ ok: true; me: Principal; grant: TenantGrant } | Denied> {
+  const me = await principalFromRequest(req);
+  if (!me) return denied("Sign in to continue.", 401);
+
+  const decision = await mayAnywhere(me.personId, action, component);
+  if (!decision.ok) return decision;
+  return { ok: true, me, grant: decision.grant };
 }

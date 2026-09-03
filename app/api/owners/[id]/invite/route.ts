@@ -1,6 +1,6 @@
 import { emailIsFree, getOwner, setOwnerEmail } from "@/lib/db";
 import { sendInviteCode } from "@/lib/supabase-auth";
-import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,8 +18,15 @@ export const dynamic = "force-dynamic";
  * two was meant — and ambiguity there is somebody seeing the wrong herd.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const me = await requireStaff(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "write", "people");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me.kind === "staff" ? allowed.me.staff : null;
+  if (!me) {
+    return Response.json(
+      { error: "This is a council function." },
+      { status: 403 },
+    );
+  }
   if (me.role !== "officer" && me.role !== "admin") {
     return Response.json({ error: "You cannot invite owners." }, { status: 403 });
   }
