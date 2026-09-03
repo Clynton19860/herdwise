@@ -22,14 +22,15 @@ import {
   getMapParcels,
   getTrendSeries,
   getWards,
+  getFleetStats,
 } from "@/lib/db";
 
 export default async function DashboardPage() {
-  const [animals, geofences, incidents, owners, platformStats, recentActivity, trendSeries, composition, wards, mapAnimals, mapParcels, needsAttention] =
+  const [animals, geofences, incidents, owners, platformStats, recentActivity, trendSeries, composition, wards, mapAnimals, mapParcels, needsAttention, fleet] =
     await Promise.all([
       getAnimals(), getGeofences(), getIncidents(), getOwners(),
       getPlatformStats(), getRecentActivity(), getTrendSeries(), getComposition(), getWards(), getMapAnimals(), getMapParcels(),
-      getAnimalsNeedingAttention(),
+      getAnimalsNeedingAttention(), getFleetStats(),
     ]);
 
   // Name the ward the pilot actually runs in. The subtitle used to claim coverage
@@ -70,8 +71,8 @@ export default async function DashboardPage() {
         />
         <MetricCard
           label="Devices online"
-          value={platformStats.liveDevices.toLocaleString()}
-          delta={`${platformStats.registered ? Math.round((platformStats.liveDevices / platformStats.registered) * 100) : 0}% of fleet`}
+          value={fleet.online.toLocaleString()}
+          delta={fleet.total ? `${fleet.online} of ${fleet.total} tags` : "no tags yet"}
           tone="cyan"
           color="#5be7ff"
           series={trendSeries.movement}

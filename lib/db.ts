@@ -1196,6 +1196,83 @@ export async function getUnclaimedDevices(): Promise<UnclaimedDevice[]> {
   }));
 }
 
+export type TagRow = {
+  id: string; imei: string; imeiMasked: string;
+  batteryPct: number | null; signalPct: number | null;
+  lastSeenAt: string | null; lastFixAt: string | null;
+  satellites: number | null; fixes: number;
+  animalId: string | null; animalTag: string | null; animalName: string | null;
+  ownerName: string | null;
+};
+
+/**
+ * Every tag the platform knows about, assigned or not.
+ *
+ * This existed nowhere. Device counts across the application were derived from
+ * the *animal* list — `tracking` computed offline devices as
+ * `animals.length - live` — so a tag that had reached the gateway but was not
+ * yet on an animal was invisible to every screen. Ten tags were configured in
+ * Harare and nine of them could not be seen without a database query.
+ *
+ * Ordered by last contact so the ones that just arrived are at the top, which
+ * is what somebody watching a rollout actually wants.
+ */
+export async function getTagInventory(): Promise<TagRow[]> {
+  const rows = await query<{
+    id: string; imei: string; battery_pct: number | null; signal_pct: number | null;
+    last_seen_at: Date | null; last_fix_at: Date | null; satellites: number | null;
+    fixes: string; animal_id: string | null; animal_tag: string | null;
+    animal_name: string | null; owner_name: string | null;
+  }>(`
+    select d.id, d.imei, d.battery_pct, d.signal_pct, d.last_seen_at, d.last_fix_at,
+           (select f.satellites from fixes f
+             where f.device_id = d.id order by f.recorded_at desc limit 1) as satellites,
+           (select count(*) from fixes f where f.device_id = d.id) as fixes,
+           d.animal_id, a.tag as animal_tag, a.name as animal_name,
+           o.full_name as owner_name
+      from devices d
+      left join animals a on a.id = d.animal_id
+      left join owners  o on o.id = a.owner_id
+     order by d.last_seen_at desc nulls last, d.imei`);
+
+  return rows.map((r) => ({
+    id: r.id, imei: r.imei, imeiMasked: maskImei(r.imei),
+    batteryPct: r.battery_pct, signalPct: r.signal_pct,
+    lastSeenAt: r.last_seen_at ? r.last_seen_at.toISOString() : null,
+    lastFixAt: r.last_fix_at ? r.last_fix_at.toISOString() : null,
+    satellites: r.satellites, fixes: Number(r.fixes),
+    animalId: r.animal_id, animalTag: r.animal_tag, animalName: r.animal_name,
+    ownerName: r.owner_name,
+  }));
+}
+
+/**
+ * Fleet-wide device health, counted from devices rather than from animals.
+ *
+ * The dashboard reported "Devices online 1 — 100% of fleet" while nine tags sat
+ * dark, because the denominator was the number of registered animals. These are
+ * the honest numbers.
+ */
+export async function getFleetStats(): Promise<{
+  total: number; online: number; assigned: number; unassigned: number; lowBattery: number;
+}> {
+  const rows = await query<{
+    total: string; online: string; assigned: string; unassigned: string; low_battery: string;
+  }>(`
+    select count(*) as total,
+           count(*) filter (where last_seen_at > now() - interval '10 minutes') as online,
+           count(*) filter (where animal_id is not null) as assigned,
+           count(*) filter (where animal_id is null) as unassigned,
+           count(*) filter (where battery_pct is not null and battery_pct < 30) as low_battery
+      from devices`);
+  const r = rows[0];
+  return {
+    total: Number(r?.total ?? 0), online: Number(r?.online ?? 0),
+    assigned: Number(r?.assigned ?? 0), unassigned: Number(r?.unassigned ?? 0),
+    lowBattery: Number(r?.low_battery ?? 0),
+  };
+}
+
 /**
  * Attach a tag to an animal, or detach it.
  *

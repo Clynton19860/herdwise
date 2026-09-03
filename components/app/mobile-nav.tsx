@@ -90,6 +90,7 @@ const items: NavItem[] = [
   { href: "/dashboard",  label: "Overview",   icon: <I.Dashboard size={18} /> },
   { href: "/tracking",   label: "Live map",   icon: <I.Map size={18} />, badge: "Live" },
   { href: "/livestock",  label: "Livestock",  icon: <I.Cow size={18} /> },
+  { href: "/tags",       label: "Tags",       icon: <I.Tag size={18} /> },
   { href: "/owners",     label: "Owners",     icon: <I.Users size={18} /> },
   { href: "/geofences",  label: "Geofences",  icon: <I.Layers size={18} /> },
   { href: "/incidents",  label: "Incidents",  icon: <I.Alert size={18} /> },

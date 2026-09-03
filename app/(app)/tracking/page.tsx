@@ -5,19 +5,23 @@ import { I } from "@/components/ui/icon";
 import { PendingAction } from "@/components/ui/pending-action";
 import { FieldMap } from "@/components/map/field-map";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
-import { getAnimals, getGeofences, getMapAnimals, getMapParcels, getRecentActivity } from "@/lib/db";
+import { getAnimals, getFleetStats, getGeofences, getMapAnimals, getMapParcels, getRecentActivity } from "@/lib/db";
 
 export default async function TrackingPage() {
-  const [animals, geofences, recentActivity, mapAnimals, mapParcels] = await Promise.all([
+  const [animals, geofences, recentActivity, mapAnimals, mapParcels, fleet] = await Promise.all([
     getAnimals(), getGeofences(), getRecentActivity(),
-    getMapAnimals(), getMapParcels(),
+    getMapAnimals(), getMapParcels(), getFleetStats(),
   ]);
 
   const zoneCount = (t: string) => geofences.filter((g) => g.type === t).length;
   const plural = (n: number, noun: string) =>
     n === 0 ? `none yet` : `${n} ${noun}${n === 1 ? "" : "s"}`;
-  const live = animals.filter((a) => a.device.lastSyncMin < 10).length;
-  const offline = animals.length - live;
+  // Counted from the device table, not from the animal list. Deriving these
+  // from `animals` meant a tag reporting to the gateway but not yet on an
+  // animal was invisible — this page showed "Devices offline 0" while nine
+  // tags sat dark.
+  const live = fleet.online;
+  const offline = fleet.total - fleet.online;
 
   return (
     <>
