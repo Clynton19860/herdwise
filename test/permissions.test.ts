@@ -11,10 +11,22 @@ import { COMPONENTS, can, refusal, type Component, type Role } from "../lib/perm
  * itself, which is the part a permission model usually gets wrong.
  */
 
-test("a demo tenant can show everything and change nothing", () => {
+test("a demo tenant can show the product working, and not operate on it", () => {
+  const demo = { plan: "demo", role: "owner" } as const;
+
+  // Everything is readable — the point is to walk a room through it.
   for (const c of COMPONENTS) {
-    assert.equal(can({ plan: "demo", role: "owner" }, "read", c), true, `read ${c}`);
-    assert.equal(can({ plan: "demo", role: "owner" }, "write", c), false, `write ${c}`);
+    assert.equal(can(demo, "read", c), true, `read ${c}`);
+  }
+
+  // Two writes, because a livestock platform you cannot put a tag on an animal
+  // with, or draw a boundary in, is a slideshow.
+  assert.equal(can(demo, "write", "tags"), true, "can put a tag on an animal");
+  assert.equal(can(demo, "write", "geofences"), true, "can draw a boundary");
+
+  // And nothing that would let them actually run a farm on it.
+  for (const c of ["livestock", "owners", "people", "health", "incidents", "settings"] as const) {
+    assert.equal(can(demo, "write", c), false, `cannot write ${c}`);
   }
 });
 
@@ -23,6 +35,9 @@ test("the ceiling holds against the most powerful role there is", () => {
   // could. They cannot: the plan is checked before the role.
   assert.equal(can({ plan: "demo", role: "owner" }, "write", "livestock"), false);
   assert.equal(can({ plan: "demo", role: "admin" }, "write", "people"), false);
+  // Nor can they grant a colleague more than the tenant holds, which is the
+  // whole reason this is a plan and not a role.
+  assert.equal(can({ plan: "demo", role: "manager" }, "write", "livestock"), false);
   // And the same person on a paid plan can do both.
   assert.equal(can({ plan: "full", role: "owner" }, "write", "livestock"), true);
 });
@@ -78,10 +93,12 @@ test("an unknown plan or role is refused rather than assumed harmless", () => {
 });
 
 test("a refusal says which limit was hit, so somebody knows who to call", () => {
-  assert.match(
-    refusal({ plan: "demo", role: "owner" }, "write", "livestock") ?? "",
-    /trial plan/,
-    "a plan limit sends them to whoever sold it to them");
+  const trial = refusal({ plan: "demo", role: "owner" }, "write", "livestock") ?? "";
+  assert.match(trial, /trial/, "says it is a trial");
+  // And says what the trial *can* do. Somebody hitting this is mid-
+  // demonstration: knowing where the line is beats knowing there is one.
+  assert.match(trial, /tags/, "names the writes that are allowed");
+  assert.match(trial, /zones/, "both of them");
   assert.match(
     refusal({ plan: "full", role: "vet" }, "write", "settings") ?? "",
     /role/,

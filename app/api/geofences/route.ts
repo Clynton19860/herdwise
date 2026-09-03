@@ -1,6 +1,5 @@
 import { createGeofence } from "@/lib/db";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
-import { requireStaff, unauthorized } from "@/lib/api-auth";
 import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
@@ -23,7 +22,6 @@ export async function POST(req: Request) {
   const allowed = await permit(req, "write", "geofences");
   if (!allowed.ok) return allowed.response;
 
-  if (!(await requireStaff(req))) return unauthorized();
 
   const limit = rateLimit(callerKey(req), { limit: 12, windowSeconds: 60 });
   if (!limit.ok) {

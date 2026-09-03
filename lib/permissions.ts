@@ -85,15 +85,25 @@ const ROLES: Record<Role, { read: Component[]; write: Component[] }> = {
 /**
  * The ceiling each plan imposes, whatever the role beneath it says.
  *
- * `demo` is deliberately expressed as a cap on *writes* rather than as a list
- * of components: the question of how much a tenant on trial may enter is a
- * commercial one that will change, and changing it should not mean rewriting
- * the permission model. Strict read-only is the safe default; a volume cap on
- * the same components is a policy change, not a redesign.
+ * `demo` exists so somebody evaluating the platform can show it working to
+ * their government without being able to run their operation on it. That means
+ * reading everything and changing almost nothing — but not literally nothing,
+ * because a demonstration of a livestock platform where you cannot put a tag on
+ * an animal or draw a boundary is a demonstration of a slideshow.
+ *
+ * So two writes, chosen because they are the two things the product *is*: a tag
+ * on an animal, and a boundary around it. Both are reversible, neither creates
+ * a record of a real animal or a real person, and together they are enough to
+ * walk a room through the whole idea.
+ *
+ * Everything that would let them actually operate stays closed. They cannot
+ * register livestock, add owners, invite people, record health, raise incidents
+ * or change settings — so the register they would need to run a farm never
+ * comes into existence.
  */
 const PLANS: Record<Plan, { read: boolean; write: Component[] }> = {
   full: { read: true, write: ALL },
-  demo: { read: true, write: [] },
+  demo: { read: true, write: ["tags", "geofences"] },
   suspended: { read: false, write: [] },
 };
 
@@ -130,7 +140,12 @@ export function refusal(grant: Grant | null, action: Action, component: Componen
   if (!grant) return "Sign in to continue.";
   if (grant.plan === "suspended") return "This account is suspended.";
   if (action === "write" && !PLANS[grant.plan].write.includes(component)) {
-    return "This account is on a trial plan and cannot make changes.";
+    // Naming what a trial *can* do is more useful than naming what it cannot:
+    // somebody hitting this is mid-demonstration and needs to know where the
+    // line is, not that there is one.
+    return grant.plan === "demo"
+      ? "This is a trial account. It can assign tags and draw zones, but not change the register."
+      : "This account cannot make that change.";
   }
   return `Your role does not allow this.`;
 }
