@@ -69,11 +69,37 @@ export class PostgresSink {
    */
   static MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
+  /**
+   * A clock can also break backwards, and this one did.
+   *
+   * Times in the past were deliberately accepted, on the reasoning that a tag
+   * out of coverage legitimately uploads a backlog. On 3 September at about
+   * 18:02 two tags' clocks jumped sixteen hours backwards while they were
+   * continuously connected and streaming fixes:
+   *
+   *     received 18:22:38   device claims 02:17:29
+   *     received 18:09:10   device claims 02:04:05
+   *     received 18:01:07   device claims 18:01:07   ← before the jump
+   *
+   * That is not a backlog. A backlog arrives in a burst after a gap in contact;
+   * this arrived one fix at a time from a tag that had never gone quiet. Stored
+   * as claimed, an animal being driven across Harare appears not to have moved
+   * since two in the morning — and the speed between consecutive fixes, which
+   * containment reads, is computed over a sixteen-hour interval.
+   *
+   * Six hours is the line. A backlog worth ordering by device time arrives
+   * within minutes of reconnecting, and a position older than six hours has no
+   * bearing on where an animal is now. Beyond that our own clock is the better
+   * evidence. The device's raw string is stored in `device_time_raw` either
+   * way, so nothing is lost and the fault stays diagnosable.
+   */
+  static MAX_PAST_SKEW_MS = 6 * 60 * 60 * 1000;
+
   recordedAt(deviceTime, now = new Date()) {
     if (!deviceTime) return now;
-    if (deviceTime.getTime() - now.getTime() > PostgresSink.MAX_FUTURE_SKEW_MS) {
-      return now;
-    }
+    const skew = deviceTime.getTime() - now.getTime();
+    if (skew > PostgresSink.MAX_FUTURE_SKEW_MS) return now;
+    if (-skew > PostgresSink.MAX_PAST_SKEW_MS) return now;
     return deviceTime;
   }
 

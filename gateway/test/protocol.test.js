@@ -424,3 +424,31 @@ test('a positive latitude is decoded as sent, not silently corrected', () => {
   // Metres apart in reality, hemispheres apart as reported.
   assert.ok(Math.abs(p.gps.lat - q.gps.lat) > 35, 'which is why it cannot be stored');
 });
+
+/* ------------------------------------------------------------------ *
+ * A clock that breaks backwards
+ * ------------------------------------------------------------------ */
+
+test('a device clock sixteen hours behind is not believed', async () => {
+  const { PostgresSink } = await import('../src/sink-postgres.js');
+  const sink = Object.create(PostgresSink.prototype);
+  const now = new Date('2026-09-03T16:22:38Z');
+
+  // What the tags actually sent once their clocks jumped: continuously
+  // connected, streaming fixes, each claiming a time from that morning.
+  const broken = new Date('2026-09-03T00:17:29Z');
+  assert.equal(sink.recordedAt(broken, now).getTime(), now.getTime(),
+    'our clock is the better evidence');
+
+  // A short backlog after a gap in coverage is still ordered by the device.
+  const backlog = new Date('2026-09-03T14:22:38Z');
+  assert.equal(sink.recordedAt(backlog, now).getTime(), backlog.getTime(),
+    'two hours behind is a real backlog and is kept');
+
+  // The future was already guarded; this unit reported hours ahead in August.
+  const ahead = new Date('2026-09-03T20:00:00Z');
+  assert.equal(sink.recordedAt(ahead, now).getTime(), now.getTime());
+
+  // No time at all means we stamp it ourselves.
+  assert.equal(sink.recordedAt(null, now).getTime(), now.getTime());
+});
