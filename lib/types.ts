@@ -101,6 +101,12 @@ export type Geofence = {
   ward: string;
   /** Polygon points inside our stylized map (0–100) */
   polygon: [number, number][];
+  /**
+   * The same ring normalised to its own extent, for a preview. `polygon` is
+   * positioned within a Harare-wide box, which collapses a small field to a
+   * speck and clamps anything drawn outside the city to a single corner.
+   */
+  thumbnail: [number, number][];
   hectares: number;
   capacity: number;
   occupancy: number;

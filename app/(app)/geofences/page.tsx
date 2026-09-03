@@ -81,9 +81,9 @@ export default async function GeofencesPage() {
               </div>
 
               <div className="mt-4 map-canvas topo-lines relative overflow-hidden rounded-2xl h-36 border border-white/10">
-                <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" className="absolute inset-0 h-full w-full">
                   <polygon
-                    points={g.polygon.map((p) => p.join(",")).join(" ")}
+                    points={g.thumbnail.map((p) => p.join(",")).join(" ")}
                     fill={fillByType[g.type]}
                     stroke={strokeByType[g.type]}
                     strokeWidth="0.4"

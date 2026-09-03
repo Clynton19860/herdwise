@@ -401,26 +401,93 @@ export function FieldMap({
     return () => { m.off("click", onClick); };
   }, [drawing, ready]);
 
+  /**
+   * Every corner you have placed, drawn as a corner.
+   *
+   * This used to render one feature: a Polygon at three points or more, and a
+   * LineString below that. A LineString of a single coordinate draws nothing at
+   * all, so the first click on an empty map produced no visible change and the
+   * second produced a hairline — somebody marking out a paddock had no idea
+   * whether the map had registered anything until the third corner.
+   *
+   * The vertices are now their own features with their own circle layer, so a
+   * point appears the instant it is placed. The first one is filled to show
+   * where the ring will close.
+   */
   useEffect(() => {
     const m = map.current;
     if (!m || !ready) return;
+
+    const shape = draft.length >= 3
+      ? { type: "Polygon" as const, coordinates: [[...draft, draft[0]]] }
+      : { type: "LineString" as const, coordinates: draft };
+
     const data = {
       type: "FeatureCollection" as const,
-      features: draft.length
-        ? [{
-            type: "Feature" as const, properties: {},
-            geometry: draft.length >= 3
-              ? { type: "Polygon" as const, coordinates: [[...draft, draft[0]]] }
-              : { type: "LineString" as const, coordinates: draft },
-          }]
-        : [],
+      features: [
+        ...(draft.length >= 2
+          ? [{ type: "Feature" as const, properties: { role: "shape" }, geometry: shape }]
+          : []),
+        ...draft.map((c, i) => ({
+          type: "Feature" as const,
+          properties: { role: "vertex", first: i === 0, n: i + 1 },
+          geometry: { type: "Point" as const, coordinates: c },
+        })),
+      ],
     };
+
     const src = m.getSource("draft") as maplibregl.GeoJSONSource | undefined;
     if (src) { src.setData(data); return; }
+
     m.addSource("draft", { type: "geojson", data });
-    m.addLayer({ id: "draft-fill", type: "fill", source: "draft", paint: { "fill-color": "#5be7ff", "fill-opacity": 0.2 } });
-    m.addLayer({ id: "draft-line", type: "line", source: "draft", paint: { "line-color": "#5be7ff", "line-width": 2, "line-dasharray": [2, 1] } });
+    m.addLayer({
+      id: "draft-fill", type: "fill", source: "draft",
+      filter: ["==", ["get", "role"], "shape"],
+      paint: { "fill-color": "#5be7ff", "fill-opacity": 0.2 },
+    });
+    m.addLayer({
+      id: "draft-line", type: "line", source: "draft",
+      filter: ["==", ["get", "role"], "shape"],
+      paint: { "line-color": "#5be7ff", "line-width": 2, "line-dasharray": [2, 1] },
+    });
+    m.addLayer({
+      id: "draft-vertex", type: "circle", source: "draft",
+      filter: ["==", ["get", "role"], "vertex"],
+      paint: {
+        "circle-radius": 6,
+        // The first corner is solid, because that is where the ring closes.
+        "circle-color": ["case", ["get", "first"], "#5be7ff", "#0b1014"],
+        "circle-stroke-color": "#5be7ff",
+        "circle-stroke-width": 2,
+      },
+    });
+    m.addLayer({
+      id: "draft-vertex-label", type: "symbol", source: "draft",
+      filter: ["==", ["get", "role"], "vertex"],
+      layout: {
+        "text-field": ["to-string", ["get", "n"]],
+        "text-size": 10,
+        "text-offset": [0, -1.4],
+        "text-allow-overlap": true,
+      },
+      paint: { "text-color": "#e4eef0", "text-halo-color": "#0b1014", "text-halo-width": 1.2 },
+    });
   }, [draft, ready]);
+
+  /** Undo the last corner. A misplaced click otherwise meant starting again. */
+  const undoPoint = useCallback(() => setDraft((d) => d.slice(0, -1)), []);
+
+  useEffect(() => {
+    if (!drawing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Backspace" || e.key === "z" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        undoPoint();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawing, undoPoint]);
 
   return (
     <div className={`relative min-h-[280px] ${className}`}>
@@ -470,7 +537,8 @@ export function FieldMap({
             <I.Layers size={13} className="text-cyan-300" /> Drawing a field
           </div>
           <p className="text-[11px] text-white/60 mt-1 leading-snug">
-            Click to place corners. Three or more closes the shape.
+            Click to place corners — each one appears as a numbered dot. Three or
+            more closes the shape. Backspace undoes the last.
           </p>
           <div className="mt-2 text-[11px] font-mono text-white/70">{draft.length} corners</div>
           <div className="mt-2 flex gap-1.5">
@@ -482,7 +550,7 @@ export function FieldMap({
               Save
             </button>
             <button
-              onClick={() => setDraft((d) => d.slice(0, -1))}
+              onClick={undoPoint}
               disabled={!draft.length}
               className="h-8 px-2.5 rounded-xl text-xs glass-thin text-white/75 disabled:opacity-35"
             >

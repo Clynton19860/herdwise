@@ -58,3 +58,54 @@ export function polygonToCanvas(points: [number, number][]): [number, number][] 
     return [Number(x.toFixed(2)), Number(y.toFixed(2))] as [number, number];
   });
 }
+
+/**
+ * Fit a ring to its own bounding box, for a preview thumbnail.
+ *
+ * {@link toCanvas} projects into a fixed Harare-wide box, which is right for
+ * placing things relative to the city and wrong for a preview of one shape. A
+ * 0.25 ha paddock is a few hundredths of a degree across against a box spanning
+ * a third of one, so every vertex rounds to the same point and the polygon has
+ * no area. A shape drawn outside Harare entirely — a bench test in Johannesburg,
+ * say — clamps every vertex to the same corner and disappears completely.
+ *
+ * A thumbnail has no business being geographically located. It answers "what
+ * shape is this", so it is normalised to itself: the ring fills the frame
+ * whatever its size or where on earth it sits. Aspect ratio is preserved, so a
+ * long thin strip still looks like one.
+ */
+export function polygonToThumbnail(
+  points: [number, number][],
+  pad = 8,
+): [number, number][] {
+  if (points.length === 0) return [];
+
+  const lats = points.map((p) => p[0]);
+  const lngs = points.map((p) => p[1]);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+
+  // Longitude degrees shrink with latitude; without this a field looks wider
+  // than it is. At Harare's latitude the correction is about 5%.
+  const midLat = (minLat + maxLat) / 2;
+  const lngScale = Math.cos((midLat * Math.PI) / 180) || 1;
+
+  const w = (maxLng - minLng) * lngScale;
+  const h = maxLat - minLat;
+  const span = Math.max(w, h);
+
+  // A degenerate ring — every point identical — would divide by zero. Draw it
+  // as a dot in the middle rather than as nothing.
+  if (span === 0) return points.map(() => [50, 50] as [number, number]);
+
+  const inner = 100 - pad * 2;
+  const offsetX = (span - w) / 2;
+  const offsetY = (span - h) / 2;
+
+  return points.map(([lat, lng]) => {
+    const x = pad + ((lng - minLng) * lngScale + offsetX) / span * inner;
+    // SVG y grows downward; latitude grows north, so this flips.
+    const y = pad + ((maxLat - lat) + offsetY) / span * inner;
+    return [Number(x.toFixed(2)), Number(y.toFixed(2))] as [number, number];
+  });
+}

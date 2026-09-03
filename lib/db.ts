@@ -1,7 +1,7 @@
 import "server-only";
 import { Pool } from "pg";
 import { SUPABASE_ROOT_CA } from "./supabase-ca";
-import { toCanvas, polygonToCanvas } from "./geo";
+import { toCanvas, polygonToCanvas, polygonToThumbnail } from "./geo";
 import type {
   Animal, AnimalStatus, DeviceType, Geofence, GeoZoneType,
   Incident, IncidentSeverity, IncidentStatus, IncidentType, Owner, Sex, Species,
@@ -287,6 +287,9 @@ function toGeofence(r: ZoneRow): Geofence {
     type: title(r.type) as GeoZoneType,
     ward: r.ward ?? "—",
     polygon: polygonToCanvas(ring),
+    // Normalised to its own extent, so the preview shows the shape rather than
+    // its position in a city-sized box it may not even be inside.
+    thumbnail: polygonToThumbnail(ring),
     hectares: Math.round(Number(r.area_ha)),
     capacity: r.capacity ?? 0,
     occupancy: Number(r.occupancy),
