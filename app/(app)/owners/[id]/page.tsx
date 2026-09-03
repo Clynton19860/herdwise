@@ -6,7 +6,6 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { I } from "@/components/ui/icon";
-import { PendingAction } from "@/components/ui/pending-action";
 import { ScopedMap } from "@/components/app/scoped-map";
 import { Ring } from "@/components/charts/ring";
 import { Sparkline } from "@/components/charts/sparkline";
@@ -14,6 +13,7 @@ import { StatusBadge, BatteryBar, SeverityBadge, IncidentStatusBadge } from "@/c
 import { getAnimals, getGeofences, getIncidents, getMovementStats, getOwner, getWards } from "@/lib/db";
 import { EditRecord } from "@/components/app/edit-record";
 import { InviteOwner } from "@/components/owner/invite-owner";
+import { ServeNotice } from "@/components/app/serve-notice";
 
 type Params = Promise<{ id: string }>;
 
@@ -71,12 +71,12 @@ export default async function OwnerDetailPage({ params }: { params: Params }) {
               },
             ]}
           />
-          <PendingAction size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>
-            Send notice
-          </PendingAction>
-          <PendingAction size="sm" variant="glass" iconLeft={<I.Stethoscope size={14} />}>
-            Schedule visit
-          </PendingAction>
+          <ServeNotice ownerId={owner.id} ownerName={owner.fullName} />
+          {/*
+            "Schedule visit" was here and did nothing. Scheduling is a concept
+            the platform does not have — there is no calendar, no assignment and
+            no reminder — so the button was a promise nothing could keep.
+          */}
           <LinkButton href="/livestock/new" size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
             Register animal
           </LinkButton>
