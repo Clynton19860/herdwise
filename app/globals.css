@@ -557,15 +557,26 @@
 }
 .hw-pin-breach .hw-pin-ring { animation-duration: 1s; }
 
+/* `maplibre-gl.css` is imported by the map component, so Next emits it after
+   this file and its default white popup wins on equal specificity — leaving
+   pale text on a pale ground, which is what an officer got when they tapped an
+   animal. The tip already carried `!important` for the same reason; the rest of
+   the rule needed it too. */
 .maplibregl-popup-content {
-  background: rgba(10, 22, 18, 0.92);
+  background: rgba(10, 22, 18, 0.92) !important;
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   border: 1px solid var(--glass-edge);
   border-radius: 16px;
   padding: 12px 14px;
-  color: var(--color-ink);
+  color: rgba(243, 247, 243, 0.9) !important;
   box-shadow: var(--shadow-glass);
+}
+/* The close button inherits a dark colour from the same default. */
+.maplibregl-popup-close-button { color: rgba(243, 247, 243, 0.6) !important }
+.maplibregl-popup-close-button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(243, 247, 243, 0.95) !important;
 }
 .maplibregl-popup-tip { border-top-color: rgba(10, 22, 18, 0.92) !important }
 .hw-popup-tag { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: #c8f4d8 }
