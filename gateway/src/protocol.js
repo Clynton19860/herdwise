@@ -276,16 +276,29 @@ export function decodeWifi(v) {
  */
 export const ALERT_BITS = { 0: 'low_power', 1: 'sos', 2: 'vibration' };
 
+/**
+ * Bits the vendor never documented, whose meaning we established from the
+ * hardware itself. Kept in a separate map so the provenance stays visible: a
+ * name here is an inference from observation, not something anyone promised.
+ *
+ * Bit 7 — charging. On 2 September 2026 the pilot tag set 0x0080 at 15:35:46
+ * and held it while its battery climbed 78 → 85 → 87 → 93 → 94 %, having
+ * reported 0x0000 all day until it was put on charge.
+ */
+export const INFERRED_ALERT_BITS = { 7: 'charging' };
+
 export function decodeAlert(v) {
   const bits = hex(v) ?? 0;
   const flags = [];
+  const inferred = [];
   const undocumented = [];
   for (let b = 0; b < 16; b++) {
     if (!(bits & (1 << b))) continue;
     if (ALERT_BITS[b]) flags.push(ALERT_BITS[b]);
+    else if (INFERRED_ALERT_BITS[b]) { flags.push(INFERRED_ALERT_BITS[b]); inferred.push(b); }
     else undocumented.push(b);
   }
-  return { raw: v, bits, flags, undocumented };
+  return { raw: v, bits, flags, inferred, undocumented };
 }
 
 /** Fix type from the LOCA keyword. */

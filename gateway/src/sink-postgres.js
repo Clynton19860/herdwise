@@ -77,12 +77,79 @@ export class PostgresSink {
     return deviceTime;
   }
 
+  /**
+   * An alarm has to survive a missing position.
+   *
+   * `savePosition` drops any frame without a usable fix, and for a *position*
+   * that is right — the vendor repeats the last known coordinates on an
+   * unpositioned frame, so storing one as live would fabricate a sighting.
+   *
+   * But the ALERT bitfield rode on the same frame, and dropping the frame
+   * dropped the alarm with it. A tag reports `GDATA:V` exactly when it is under
+   * cover — in a shed, in a vehicle, under a tarpaulin — which is where a
+   * stolen animal is. On 2 September 2026 the pilot's SOS arrived on such a
+   * frame, was decoded correctly, and reached nothing.
+   *
+   * So the alert is recorded first, before any judgement about the rest of the
+   * packet, and the database decides what deserves a case.
+   */
+  async saveAlert(p) {
+    if (!p.alert?.bits) return null;
+
+    const g = p.gps;
+    const positioned = Boolean(g?.positioned && g.lat != null && g.lng != null);
+
+    const { rows } = await this.pool.query(
+      `select record_alert($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) as result`,
+      [
+        p.imei,
+        p.alert.bits,
+        p.alert.flags ?? [],
+        p.alert.raw ?? null,
+        p.fixType ?? null,
+        positioned ? g.lat : null,
+        positioned ? g.lng : null,
+        p.status?.batteryPct ?? null,
+        p.status?.signalPct ?? null,
+        this.recordedAt(g?.timestamp).toISOString(),
+        p.sourceIp ?? null,
+      ],
+    );
+    const result = rows[0]?.result ?? null;
+
+    const label = p.alert.flags?.length ? p.alert.flags.join(' + ') : `raw ${p.alert.raw}`;
+    if (result?.sos) {
+      console.log(
+        `  🚨 SOS      ${p.imei}  ${label}` +
+        (result.incident_id ? `  → incident ${result.incident_id}` : '  → already open'));
+    } else {
+      console.log(`  ⚠ alert     ${p.imei}  ${label}`);
+    }
+
+    // The vendor's own example sends ALERT bit 6, which its documentation never
+    // defines. Record every bit we still cannot name rather than discarding it —
+    // one of them may be the tamper signal we actually want.
+    if (p.alert.undocumented?.length) {
+      await this.saveAnomaly(p.imei, {
+        type: 'undocumented_alert_bit',
+        bits: p.alert.undocumented,
+        raw: p.alert.raw,
+      });
+    }
+    return result;
+  }
+
   async savePosition(p) {
     const g = p.gps;
+
+    // Before anything can decide this frame is uninteresting.
+    const alert = await this.saveAlert(p);
+
     // An unpositioned fix repeats the last known coordinates per the vendor
     // doc — storing it as live would fabricate a position we never observed.
     if (!g?.positioned || g.lat == null || g.lng == null) {
-      return this.saveAnomaly(p.imei, { type: 'unpositioned_fix', fixType: p.fixTypeRaw });
+      await this.saveAnomaly(p.imei, { type: 'unpositioned_fix', fixType: p.fixTypeRaw });
+      return alert;
     }
 
     const { rows } = await this.pool.query(
@@ -112,17 +179,6 @@ export class PostgresSink {
 
     const result = rows[0]?.result;
     if (result) this.onContainment(result);
-
-    // The vendor's own example sends ALERT bit 6, which its documentation never
-    // defines. Record every undocumented bit rather than discarding it — one of
-    // them may be the tamper signal we actually want.
-    if (p.alert?.undocumented?.length) {
-      await this.saveAnomaly(p.imei, {
-        type: 'undocumented_alert_bit',
-        bits: p.alert.undocumented,
-        raw: p.alert.raw,
-      });
-    }
     return result;
   }
 

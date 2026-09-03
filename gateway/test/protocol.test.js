@@ -354,3 +354,43 @@ test('a plain SYNC counter still has no extras', () => {
   assert.equal(p.count, 4);
   assert.deepEqual(p.syncExtras, []);
 });
+
+/* ------------------------------------------------------------------ *
+ * The alarm the pilot tag raised on 2 September 2026
+ * ------------------------------------------------------------------ */
+
+/**
+ * The tag's button was pressed. It sent ALERT:0082 on a frame whose GPS was
+ * void — bit 1 (SOS) alongside bit 7, which the vendor never documented but
+ * which the hardware sets while charging: 0x0080 appeared the moment the tag
+ * went on charge and held while its battery climbed 78 % to 94 %.
+ *
+ * IMEI redacted to the test range; the structure is exactly as captured.
+ */
+const SOS_NO_FIX =
+  'S168#860000000000009#000e#0075#LOCA:W;CELL:0,0,0,0,0,0;' +
+  'GDATA:V,0,260902220011,0.0,0.0,0,0,0;ALERT:0082;STATUS:94,100$';
+
+test('the SOS bit is read from a real alarm frame', () => {
+  const p = decodePacket(deframe(Buffer.from(SOS_NO_FIX, 'utf8')).frames[0]);
+  assert.equal(p.type, 'position');
+  assert.equal(p.gps.positioned, false, 'GDATA:V carries no usable fix');
+  assert.ok(p.alert.flags.includes('sos'), 'and the alarm is still there');
+  assert.equal(p.status.batteryPct, 94);
+});
+
+test('bit 7 is named from what the hardware did, not from the manual', () => {
+  // Recorded as inferred rather than documented, so the provenance survives.
+  const charging = decodeAlert('0080');
+  assert.deepEqual(charging.flags, ['charging']);
+  assert.deepEqual(charging.inferred, [7]);
+  assert.deepEqual(charging.undocumented, [], 'no longer reported as unknown');
+
+  const both = decodeAlert('0082');
+  assert.deepEqual(both.flags, ['sos', 'charging']);
+
+  // Bit 6 from the vendor's own example is still unexplained, and must stay
+  // visible rather than being quietly absorbed.
+  assert.deepEqual(decodeAlert('0040').undocumented, [6]);
+  assert.deepEqual(decodeAlert('0000').flags, []);
+});
