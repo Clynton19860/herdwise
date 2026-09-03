@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { executeTool, systemPrompt, tools } from "@/lib/ai-tools";
 import { callerKey, rateLimit } from "@/lib/rate-limit";
 import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +47,9 @@ const json = (payload: unknown, status: number, headers: Record<string, string> 
   });
 
 export async function POST(req: Request) {
+  const allowed = await permit(req, "read", "analytics");
+  if (!allowed.ok) return allowed.response;
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return json({ error: "The assistant is not configured on this deployment." }, 503);
   }

@@ -2,6 +2,7 @@ import { addFarmMember, farmRoleOf, getFarmMembers, removeFarmMember } from "@/l
 import { sendInviteCode } from "@/lib/supabase-auth";
 import { emailIsFree } from "@/lib/db";
 import { principalFromRequest } from "@/lib/principal";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,9 @@ const bad = (error: string, status = 400) => Response.json({ error }, { status }
 
 /** Who works on this farm. */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const allowed = await permit(req, "read", "people");
+  if (!allowed.ok) return allowed.response;
+
   const me = await principalFromRequest(req);
   if (me?.kind !== "owner") return bad("Sign in to continue.", 401);
   const { id } = await ctx.params;
@@ -26,6 +30,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
  * from here would let a manager quietly take the place over.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const allowed = await permit(req, "write", "people");
+  if (!allowed.ok) return allowed.response;
+
   const me = await principalFromRequest(req);
   if (me?.kind !== "owner") return bad("Sign in to continue.", 401);
 

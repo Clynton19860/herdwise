@@ -1,5 +1,6 @@
 import { getWards } from "@/lib/db";
 import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,9 @@ export const dynamic = "force-dynamic";
  * A picker must only offer what exists.
  */
 export async function GET(req: Request) {
+  const allowed = await permit(req, "read", "settings");
+  if (!allowed.ok) return allowed.response;
+
   if (!(await requireStaff(req))) return unauthorized();
 
   try {

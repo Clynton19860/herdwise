@@ -1,5 +1,6 @@
 import { getStaff } from "@/lib/db";
 import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,9 @@ export const dynamic = "force-dynamic";
  * row — so an incident could be assigned to somebody who does not exist.
  */
 export async function GET(req: Request) {
+  const allowed = await permit(req, "read", "people");
+  if (!allowed.ok) return allowed.response;
+
   if (!(await requireStaff(req))) return unauthorized();
 
   try {

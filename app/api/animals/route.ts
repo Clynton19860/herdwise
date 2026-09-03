@@ -1,6 +1,5 @@
 import { assignDevice, createAnimal, getDeviceByImei } from "@/lib/db";
-import { unauthorized } from "@/lib/api-auth";
-import { principalFromRequest } from "@/lib/principal";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,8 +9,9 @@ const SEX = new Set(["male", "female"]);
 
 /** Register an animal against an owner. */
 export async function POST(req: Request) {
-  const me = await principalFromRequest(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "write", "livestock");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me;
 
   let b: Record<string, string | null | undefined>;
   try { b = await req.json(); } catch { return bad("Invalid request."); }

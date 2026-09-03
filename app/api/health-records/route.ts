@@ -1,5 +1,5 @@
 import { createHealthRecord } from "@/lib/db";
-import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,8 +8,15 @@ const TYPES = new Set(["vaccination", "treatment", "diagnosis", "inspection", "q
 
 /** Log a vaccination, treatment, diagnosis, inspection or quarantine. */
 export async function POST(req: Request) {
-  const me = await requireStaff(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "write", "health");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me.kind === "staff" ? allowed.me.staff : null;
+  if (!me) {
+    return Response.json(
+      { error: "This is a council function." },
+      { status: 403 },
+    );
+  }
   // A health record is a clinical statement. Officers read them; vets write them.
   if (me.role !== "vet" && me.role !== "admin") {
     return Response.json(

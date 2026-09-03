@@ -1,6 +1,7 @@
 import { animalBelongsTo, deleteAnimal, updateAnimal } from "@/lib/db";
 import { unauthorized } from "@/lib/api-auth";
 import { principalFromRequest } from "@/lib/principal";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,8 +18,9 @@ const STATUS = new Set(["healthy", "monitoring", "alert", "quarantined", "deceas
  * follow. Uniqueness is enforced by the index.
  */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const me = await principalFromRequest(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "write", "livestock");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me;
 
   const { id } = await ctx.params;
 

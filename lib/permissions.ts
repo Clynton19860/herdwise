@@ -54,9 +54,14 @@ const ROLES: Record<Role, { read: Component[]; write: Component[] }> = {
 
   // A municipal field officer: sees everything they regulate, records what
   // they observe, and cannot alter the register's people or settings.
+  //
+  // Not health. A health record is a clinical statement, and an officer who
+  // is not a vet should not be able to make one — the health-records route
+  // already refused this, and a permission table that disagreed with the rule
+  // it is meant to express is worse than no table at all.
   officer: {
     read: ALL,
-    write: ["livestock", "geofences", "incidents", "health"],
+    write: ["livestock", "geofences", "incidents"],
   },
 
   // Health is the vet's business and nothing else is. They may be invited to

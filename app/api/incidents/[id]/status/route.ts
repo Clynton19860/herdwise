@@ -1,5 +1,5 @@
 import { updateIncidentStatus } from "@/lib/db";
-import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,8 +14,15 @@ const STATUSES = new Set(["open", "in_progress", "resolved", "escalated"]);
  * recorded, not a name typed into a box.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const me = await requireStaff(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "write", "incidents");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me.kind === "staff" ? allowed.me.staff : null;
+  if (!me) {
+    return Response.json(
+      { error: "This is a council function." },
+      { status: 403 },
+    );
+  }
   if (me.role !== "officer" && me.role !== "admin") {
     return Response.json(
       { error: "Only an officer can work an incident." },

@@ -1,13 +1,20 @@
 import { createOwner } from "@/lib/db";
-import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** Register a livestock owner. */
 export async function POST(req: Request) {
-  const me = await requireStaff(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "write", "owners");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me.kind === "staff" ? allowed.me.staff : null;
+  if (!me) {
+    return Response.json(
+      { error: "This is a council function." },
+      { status: 403 },
+    );
+  }
 
   let b: Record<string, string | null | undefined>;
   try { b = await req.json(); } catch { return bad("Invalid request."); }

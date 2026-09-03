@@ -1,5 +1,5 @@
 import { getAnimals, getNotifications, markNotificationsRead } from "@/lib/db";
-import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,8 +14,15 @@ export const dynamic = "force-dynamic";
  * Persisting the second would leave stale alerts nobody can clear.
  */
 export async function GET(req: Request) {
-  const me = await requireStaff(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "read", "tracking");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me.kind === "staff" ? allowed.me.staff : null;
+  if (!me) {
+    return Response.json(
+      { error: "This is a council function." },
+      { status: 403 },
+    );
+  }
 
   try {
     const [notices, animals] = await Promise.all([getNotifications(me.id), getAnimals()]);
@@ -50,8 +57,15 @@ export async function GET(req: Request) {
 
 /** Marks notices read. Device conditions have nothing to mark — they simply stop. */
 export async function POST(req: Request) {
-  const me = await requireStaff(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "write", "incidents");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me.kind === "staff" ? allowed.me.staff : null;
+  if (!me) {
+    return Response.json(
+      { error: "This is a council function." },
+      { status: 403 },
+    );
+  }
 
   let body: { ids?: string[] } = {};
   try { body = await req.json(); } catch { /* clearing everything is the default */ }

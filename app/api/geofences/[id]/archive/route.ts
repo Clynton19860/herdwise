@@ -1,5 +1,5 @@
 import { archiveGeofence } from "@/lib/db";
-import { requireStaff, unauthorized } from "@/lib/api-auth";
+import { permit } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,8 +12,15 @@ export const dynamic = "force-dynamic";
  * A retired zone stops being enforced and stays readable.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const me = await requireStaff(req);
-  if (!me) return unauthorized();
+  const allowed = await permit(req, "write", "geofences");
+  if (!allowed.ok) return allowed.response;
+  const me = allowed.me.kind === "staff" ? allowed.me.staff : null;
+  if (!me) {
+    return Response.json(
+      { error: "This is a council function." },
+      { status: 403 },
+    );
+  }
   if (me.role !== "admin") {
     return Response.json({ error: "Only an administrator can archive a zone." }, { status: 403 });
   }
