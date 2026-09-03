@@ -99,3 +99,73 @@ test("every component is decidable for every role", () => {
     }
   }
 });
+
+/* ------------------------------------------------------------------ *
+ * Reaching a record: membership, or a mandate over it
+ * ------------------------------------------------------------------ */
+
+import { grantFor, type Scope } from "../lib/permissions.ts";
+
+const HARARE = "t-harare";
+const BULAWAYO = "t-bulawayo";
+const FARM_A = "t-farm-a";
+const FARM_B = "t-farm-b";
+
+const councilOfficer: Scope = {
+  tenantId: HARARE, kind: "municipal", plan: "full", role: "officer", jurisdictionId: null,
+};
+const bulawayoOfficer: Scope = {
+  tenantId: BULAWAYO, kind: "municipal", plan: "full", role: "officer", jurisdictionId: null,
+};
+const farmOwner: Scope = {
+  tenantId: FARM_A, kind: "farm", plan: "full", role: "owner", jurisdictionId: HARARE,
+};
+
+// A farm in Harare's district, and one in Bulawayo's.
+const inHarare = { tenantId: FARM_A, jurisdictionId: HARARE };
+const inBulawayo = { tenantId: FARM_B, jurisdictionId: BULAWAYO };
+
+test("a farm owner reaches their own farm's records", () => {
+  assert.equal(grantFor([farmOwner], inHarare)?.tenantId, FARM_A);
+});
+
+test("a council officer reaches a farm it regulates without belonging to it", () => {
+  // The officer is a member of no farm at all — which is the normal case, since
+  // a district has hundreds. Answering from their memberships would deny all.
+  const g = grantFor([councilOfficer], inHarare);
+  assert.equal(g?.tenantId, HARARE, "reached by mandate");
+  assert.equal(g?.kind, "municipal");
+});
+
+test("a council cannot reach a farm in another district", () => {
+  assert.equal(grantFor([councilOfficer], inBulawayo), null);
+  assert.equal(grantFor([bulawayoOfficer], inHarare), null);
+});
+
+test("membership wins over mandate, so a person acts as themselves first", () => {
+  // Somebody who is both a Harare officer and the owner of a Harare farm gets
+  // their own farm's grant on their own farm, not the council's.
+  const g = grantFor([councilOfficer, farmOwner], inHarare);
+  assert.equal(g?.tenantId, FARM_A);
+  assert.equal(g?.role, "owner");
+});
+
+test("a farm under no jurisdiction is reachable only by its own members", () => {
+  const independent = { tenantId: "t-independent", jurisdictionId: null };
+  assert.equal(grantFor([councilOfficer], independent), null, "no council reaches it");
+  assert.equal(
+    grantFor([{ ...farmOwner, tenantId: "t-independent", jurisdictionId: null }], independent)
+      ?.tenantId,
+    "t-independent");
+});
+
+test("a farm cannot be reached through another farm", () => {
+  // The single edge exists so that reach is one hop and can never become a
+  // chain. A farm owner in Harare does not reach a sibling farm.
+  const sibling = { tenantId: FARM_B, jurisdictionId: HARARE };
+  assert.equal(grantFor([farmOwner], sibling), null);
+});
+
+test("holding no grants reaches nothing", () => {
+  assert.equal(grantFor([], inHarare), null);
+});

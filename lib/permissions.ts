@@ -129,3 +129,44 @@ export function refusal(grant: Grant | null, action: Action, component: Componen
   }
   return `Your role does not allow this.`;
 }
+
+/* ------------------------------------------------------------- scoping */
+
+export type Scope = {
+  tenantId: string;
+  kind: "platform" | "municipal" | "farm";
+  plan: Plan;
+  role: Role;
+  /** The council this farm answers to. Null for a council or the platform. */
+  jurisdictionId: string | null;
+};
+
+/** Where a record lives, and who regulates that place. */
+export type RecordScope = { tenantId: string; jurisdictionId: string | null };
+
+/**
+ * Which of a person's grants applies to a record, if any.
+ *
+ * Two ways to reach a record and they are not the same thing:
+ *
+ *   membership     you belong to the tenant that owns it
+ *   jurisdiction   you administer the council that regulates the tenant
+ *
+ * The second is a mandate rather than ownership, and it is one hop and never a
+ * chain — a council reaches the farms in its own district and no further. That
+ * is the whole reason there is a single edge between tenants instead of a
+ * hierarchy: "may they?" is answerable without walking a tree, so it cannot
+ * quietly become "may they, eventually?".
+ *
+ * Kept pure so the rule can be tested without a database, which is what makes
+ * it worth trusting.
+ */
+export function grantFor(grants: Scope[], record: RecordScope): Scope | null {
+  const own = grants.find((g) => g.tenantId === record.tenantId);
+  if (own) return own;
+
+  if (!record.jurisdictionId) return null;
+  return grants.find(
+    (g) => g.kind === "municipal" && g.tenantId === record.jurisdictionId,
+  ) ?? null;
+}

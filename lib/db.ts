@@ -1390,6 +1390,76 @@ export async function deleteAnimal(animalId: string): Promise<{
   return { tag: rows[0].tag, releasedImei: released[0]?.imei ?? null };
 }
 
+/* ---------------------------------------------------------- permission */
+
+export type TenantGrant = {
+  tenantId: string;
+  tenantName: string;
+  kind: "platform" | "municipal" | "farm";
+  plan: "full" | "demo" | "suspended";
+  role: "owner" | "admin" | "manager" | "officer" | "vet" | "herdsman" | "viewer";
+  /** The council this farm answers to, for the disclosure boundary. */
+  jurisdictionId: string | null;
+};
+
+/**
+ * What a person may do, read from the database rather than from the session.
+ *
+ * The plan in particular must never travel in a cookie. A ceiling the browser
+ * carries is a ceiling the browser can be persuaded to raise, and the whole
+ * point of putting it on the tenant was that nobody inside can lift it.
+ *
+ * Returns every tenant they hold, because a veterinarian invited onto several
+ * farms is one person with several grants and the route has to know which one
+ * the record in front of it falls under.
+ */
+export async function getGrants(personId: string): Promise<TenantGrant[]> {
+  const rows = await query<{
+    tenant_id: string; name: string; kind: string; plan: string; role: string;
+    jurisdiction_id: string | null;
+  }>(`select t.id as tenant_id, t.name, t.kind::text, t.plan::text,
+             m.role::text, t.jurisdiction_id
+        from tenant_members m
+        join tenants t on t.id = m.tenant_id
+       where m.person_id = $1::uuid
+       order by case t.kind when 'platform' then 0 when 'municipal' then 1 else 2 end, t.name`,
+     [asUuid(personId)]);
+
+  return rows.map((r) => ({
+    tenantId: r.tenant_id, tenantName: r.name,
+    kind: r.kind as TenantGrant["kind"],
+    plan: r.plan as TenantGrant["plan"],
+    role: r.role as TenantGrant["role"],
+    jurisdictionId: r.jurisdiction_id,
+  }));
+}
+
+/**
+ * The tenant a record belongs to, so a route can ask about the right ceiling.
+ *
+ * Answered from the row rather than from which page asked for it — the same
+ * reason `animalBelongsTo` exists. A caller that passes its own idea of the
+ * tenant is a caller that can pass somebody else's.
+ */
+export async function tenantOf(
+  table: "animals" | "devices" | "land_parcels" | "geofences" | "incidents" | "owners",
+  id: string,
+): Promise<{ tenantId: string; jurisdictionId: string | null } | null> {
+  // The table name is not interpolated from user input — the union above is the
+  // whole permitted set, and TypeScript will not compile anything outside it.
+  //
+  // The jurisdiction comes back with it because a council officer regulating a
+  // farm is not a member of that farm, and asking whether they may act on its
+  // records cannot be answered from their own memberships alone.
+  const rows = await query<{ tenant_id: string | null; jurisdiction_id: string | null }>(
+    `select r.tenant_id, t.jurisdiction_id
+       from ${table} r left join tenants t on t.id = r.tenant_id
+      where r.id = $1::uuid`, [asUuid(id)]);
+  const r = rows[0];
+  if (!r?.tenant_id) return null;
+  return { tenantId: r.tenant_id, jurisdictionId: r.jurisdiction_id };
+}
+
 /* ------------------------------------------------------------- identity */
 
 export type PersonAccount = {
