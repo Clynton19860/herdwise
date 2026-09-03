@@ -167,6 +167,12 @@ export type RecordScope = { tenantId: string; jurisdictionId: string | null };
 /**
  * Which of a person's grants applies to a record, if any.
  *
+ * The same rule the database holds as `visible_tenants(uuid)`, and it is stated
+ * twice on purpose: the application decides in memory from grants it already
+ * has, and the database can answer for itself when a query needs scoping.
+ * `disclosure_test.sql` asserts the database half and `permissions.test.ts` the
+ * application half against the same cases, so the two cannot drift silently.
+ *
  * Two ways to reach a record and they are not the same thing:
  *
  *   membership     you belong to the tenant that owns it
