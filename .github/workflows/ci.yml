@@ -84,3 +84,7 @@ jobs:
       # rows in a week and buried the findings that mattered.
       - name: Anomalies
         run: $PSQL -f supabase/tests/anomalies_test.sql
+      # Identity. A person is not a role: the same human can be a council
+      # officer and a cattle owner, which the two-table model could not express.
+      - name: Identity
+        run: $PSQL -f supabase/tests/people_test.sql

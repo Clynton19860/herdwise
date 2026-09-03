@@ -7,14 +7,20 @@ import { I } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+type Option = { kind: "staff" | "owner"; subjectId: string; role: string; label: string; ward: string | null };
+
 /**
- * Email and password, and that is the whole sign-in.
+ * Email and password, and — for somebody who wears more than one hat — which.
  *
- * This used to ask for a six-digit code as a second step. It was removed
- * because the mailer allows two messages an hour, so somebody signing in three
- * times in a morning — which is what a ward office actually does — was locked
- * out by their own security. Codes still guard the moments that matter:
- * accepting an invitation, resetting a password, changing an email.
+ * The six-digit second step was removed because the mailer allows two messages
+ * an hour, so signing in three times in a morning locked people out of their
+ * own platform. Codes still guard accepting an invitation and resetting a
+ * password, which happen once.
+ *
+ * The second step here is a different thing entirely: it asks nothing about
+ * identity, only which role to act as. Most people never see it — it appears
+ * when one address holds a council post and a farm, which is exactly the case
+ * the old two-table model could not express at all.
  */
 export function LoginForm({
   testEmail,
@@ -31,6 +37,8 @@ export function LoginForm({
   const [password, setPassword] = useState(testPassword ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [options, setOptions] = useState<Option[] | null>(null);
+  const [challenge, setChallenge] = useState("");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,15 +55,46 @@ export function LoginForm({
         setError(data.error ?? "Could not sign in.");
         return;
       }
-      // `next` only applies when it is a page this principal can open; the
-      // server says where home is for them.
-      router.replace(next !== "/dashboard" ? next : (data.home ?? "/dashboard"));
-      router.refresh();
+      if (data.choose) {
+        setChallenge(data.challenge);
+        setOptions(data.options as Option[]);
+        return;
+      }
+      land(data.home);
     } catch {
       setError("Could not reach the server.");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function choose(o: Option) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/context", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ challenge, kind: o.kind, subjectId: o.subjectId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Could not open that role.");
+        return;
+      }
+      land(data.home);
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // `next` only applies when it is a page this principal can open; the server
+  // says where home is for them.
+  function land(home?: string) {
+    router.replace(next !== "/dashboard" ? next : (home ?? "/dashboard"));
+    router.refresh();
   }
 
   return (
@@ -73,6 +112,61 @@ export function LoginForm({
       </div>
 
       <div className="glass-solid rounded-3xl p-6 sm:p-7">
+        {options ? (
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight">Continue as</h1>
+              <p className="text-xs text-white/55 mt-1">
+                This account holds more than one role. Pick the one you need — you can
+                sign out and back in to change it.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {options.map((o) => (
+                <button
+                  key={`${o.kind}:${o.subjectId}`}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => choose(o)}
+                  className="w-full text-left glass-thin rounded-2xl px-4 py-3 flex items-center gap-3
+                    hover:bg-white/8 disabled:opacity-50 transition-colors
+                    focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                >
+                  <span
+                    aria-hidden
+                    className="h-9 w-9 rounded-xl grid place-items-center shrink-0 bg-white/8"
+                  >
+                    {o.kind === "owner" ? <I.Cow size={16} /> : <I.Shield size={16} />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm truncate">{o.label}</span>
+                    <span className="block text-[11px] text-white/45 capitalize">
+                      {o.kind === "owner" ? "Farm owner" : o.role}
+                      {o.ward ? ` · ${o.ward}` : ""}
+                    </span>
+                  </span>
+                  <I.ArrowRight size={14} className="ml-auto shrink-0 text-white/40" />
+                </button>
+              ))}
+            </div>
+
+            {error && (
+              <p className="text-sm text-rose-200 flex items-start gap-2">
+                <I.Alert size={14} className="mt-0.5 shrink-0" />
+                {error}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={() => { setOptions(null); setError(null); }}
+              className="w-full text-xs text-white/55 hover:text-white/85 transition-colors"
+            >
+              Use a different account
+            </button>
+          </div>
+        ) : (
         <form onSubmit={submit} className="space-y-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Sign in</h1>
@@ -127,6 +221,7 @@ export function LoginForm({
             </Link>
           </div>
         </form>
+        )}
       </div>
 
       {testEmail && (

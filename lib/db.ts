@@ -31,16 +31,32 @@ export class DatabaseNotConfigured extends Error {
 // connections until Postgres refuses new ones.
 const globalForPg = globalThis as unknown as { herdwisePool?: Pool };
 
+/**
+ * TLS for anything that leaves this machine, and nothing for a local socket.
+ *
+ * Supabase's pooler presents a certificate from its own private CA, which is in
+ * no system trust store. Pin it rather than disabling verification — this
+ * connection carries every animal position over the public internet. The CA is
+ * embedded (see lib/supabase-ca.ts) because serverless bundles do not reliably
+ * ship files read at runtime.
+ *
+ * A local Postgres has no TLS at all and refuses the handshake, which made it
+ * impossible to run the application against the development database. Only an
+ * explicit localhost host turns it off, so no deployment can reach this branch
+ * by accident.
+ */
+function tlsFor(url: string) {
+  let host = "";
+  try { host = new URL(url).hostname; } catch { /* fall through to TLS on */ }
+  const isLocal = host === "localhost" || host === "127.0.0.1" || host === "::1";
+  return isLocal ? false : { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true };
+}
+
 function pool(): Pool {
   if (!process.env.DATABASE_URL) throw new DatabaseNotConfigured();
   globalForPg.herdwisePool ??= new Pool({
     connectionString: process.env.DATABASE_URL,
-    // Supabase's pooler presents a certificate from its own private CA, which
-    // is in no system trust store. Pin it rather than disabling verification —
-    // this connection carries every animal position over the public internet.
-    // The CA is embedded (see lib/supabase-ca.ts) because serverless bundles do
-    // not reliably ship files read at runtime.
-    ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true },
+    ssl: tlsFor(process.env.DATABASE_URL),
     max: 5,
     connectionTimeoutMillis: 5_000,
     idleTimeoutMillis: 30_000,
@@ -1372,6 +1388,70 @@ export async function deleteAnimal(animalId: string): Promise<{
 
   if (!rows[0]) return null;
   return { tag: rows[0].tag, releasedImei: released[0]?.imei ?? null };
+}
+
+/* ------------------------------------------------------------- identity */
+
+export type PersonAccount = {
+  id: string; fullName: string; email: string;
+  passwordHash: string | null; active: boolean; tokenVersion: number;
+};
+
+export type Membership = {
+  kind: "staff" | "owner";
+  subjectId: string;
+  role: string;
+  label: string;
+  ward: string | null;
+};
+
+/**
+ * Sign-in resolves a person, not a role.
+ *
+ * `staff` and `owners` each carried their own email and password, so the login
+ * route had to pick one table to check first — and whichever it picked, the
+ * other identity for that address became unreachable. A council administrator
+ * who also owns cattle could not sign in as a farmer.
+ */
+export async function getPersonByEmail(email: string): Promise<PersonAccount | null> {
+  const rows = await query<{
+    id: string; full_name: string; email: string;
+    password_hash: string | null; active: boolean; token_version: number;
+  }>(`select id, full_name, email, password_hash, active, token_version
+        from people where lower(email) = lower($1)`, [email.trim()]);
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    id: r.id, fullName: r.full_name, email: r.email,
+    passwordHash: r.password_hash, active: r.active, tokenVersion: Number(r.token_version),
+  };
+}
+
+/**
+ * Every hat this person may wear.
+ *
+ * Re-derived on the server whenever a hat is chosen, so a browser cannot ask to
+ * become somebody it is not by editing an id — the choice is checked against
+ * this list rather than trusted.
+ */
+export async function getMemberships(personId: string): Promise<Membership[]> {
+  const rows = await query<{
+    kind: string; subject_id: string; role: string; label: string; ward: string | null;
+  }>(`select m.kind, m.subject_id, m.role, m.label, w.name as ward
+        from person_memberships m
+        left join wards w on w.id = m.ward_id
+       where m.person_id = $1::uuid and m.active
+       order by case m.kind when 'staff' then 0 else 1 end, m.label`,
+     [asUuid(personId)]);
+  return rows.map((r) => ({
+    kind: r.kind === "owner" ? "owner" : "staff",
+    subjectId: r.subject_id, role: r.role, label: r.label, ward: r.ward,
+  }));
+}
+
+/** Records the sign-in against the person, so "last seen" is per human. */
+export async function touchPersonLogin(personId: string) {
+  await query(`update people set last_login_at = now() where id = $1::uuid`, [asUuid(personId)]);
 }
 
 /* ------------------------------------------------------- owner accounts */
