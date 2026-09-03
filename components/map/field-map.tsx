@@ -42,15 +42,19 @@ const STATUS_COLOUR: Record<string, string> = {
 const BREACH_COLOUR = "#ff3b3b";
 
 /**
- * An animal with no allocation cannot be assessed, and must not look compliant.
+ * An animal nobody has judged must not look compliant.
  *
- * Containment has nothing to measure her against, so `containment_state` is
- * null — which fell through to the healthy green and made her indistinguishable
- * from an animal known to be where she belongs. In an enforcement system that
- * is the wrong default: a farmer whose animal was never allocated would appear
- * permanently in order, and nobody would notice she was never being watched.
+ * Two ways to end up here, and the map owes the operator the same answer for
+ * both: no allocation at all, so there is nothing to be outside of; or an
+ * allocation with no verdict yet, because containment only ever advanced on an
+ * incoming fix and none has arrived since she was allocated.
  *
- * Deliberately not red. She has done nothing wrong; the register is incomplete.
+ * The second was the subtler one, and it showed during a demonstration — an
+ * animal 717 m outside her homestead sat green beside one 700 m out that was
+ * red, because the question had been asked of one and not the other. Testing
+ * only for a missing allocation let that through.
+ *
+ * Deliberately not red. She has done nothing wrong; the assessment is missing.
  */
 const UNMONITORED_COLOUR = "#7c8b93";
 
@@ -332,7 +336,7 @@ export function FieldMap({
       if (a.lat == null || a.lng == null) continue;
       seen.add(a.animal_id);
       const breached = a.containment_state === "outside";
-      const unmonitored = a.parcel_id == null;
+      const unmonitored = a.parcel_id == null || a.containment_state == null;
       const colour = breached
         ? BREACH_COLOUR
         : unmonitored
@@ -729,7 +733,11 @@ function popupHtml(a: MapAnimal) {
     String(s ?? "—").replace(/[&<>"']/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
   const breach = a.containment_state === "outside";
-  const unmonitored = a.parcel_id == null;
+  // Say which kind of "not judged" this is. "No allocation" is a gap in the
+  // register an officer can close; "not assessed yet" is the platform waiting
+  // on a fix, and telling them to keep waiting is the honest answer.
+  const unallocated = a.parcel_id == null;
+  const unjudged = !unallocated && a.containment_state == null;
   return `
     <div class="hw-popup">
       <div class="hw-popup-tag">${esc(a.tag)}</div>
@@ -739,7 +747,8 @@ function popupHtml(a: MapAnimal) {
         <dt>Field</dt><dd>${esc(a.parcel_name)}</dd>
         <dt>Status</dt><dd${breach ? ' class="bad"' : ""}>${
           breach ? `outside by ${Math.round(a.distance_m ?? 0)} m`
-                 : unmonitored ? "no allocation — not monitored"
+                 : unallocated ? "no allocation — not monitored"
+                 : unjudged ? "not assessed yet — waiting on a fix"
                  : esc(a.containment_state ?? a.status)}</dd>
         <dt>Battery</dt><dd>${esc(a.battery_pct)}%</dd>
         <dt>Fix</dt><dd>${esc(a.last_fix_type)}</dd>
