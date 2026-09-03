@@ -215,6 +215,9 @@ export class PostgresSink {
         `  ⚠ implausible ${p.imei}  ${g.lat},${g.lng}  outside the operating region — refused`);
       await this.saveAnomaly(p.imei, {
         type: 'position_outside_region',
+        // Each distinct bad coordinate is its own evidence — a tag replaying
+        // one stale position and a tag drifting are different faults.
+        signature: `${g.lat},${g.lng}`,
         lat: g.lat, lng: g.lng, fixType: p.fixTypeRaw,
         region: PostgresSink.REGION,
       });
@@ -301,12 +304,35 @@ export class PostgresSink {
     console.log(`  ↑ reply     ${p.imei}  ${p.command} -> ${p.result}`);
   }
 
+  /**
+   * Record an anomaly once, and count the repeats.
+   *
+   * This used to insert a row per occurrence, which was right while the
+   * protocol was still being learned and wrong once it had been. Ten tags
+   * produced forty thousand rows in a week, thirty thousand of them saying
+   * "this heartbeat carried the same extra fields as the last one" — burying
+   * the two hundred that described a real firmware fault, and growing without
+   * bound on a fleet meant to reach thousands.
+   *
+   * `signature` says what makes two occurrences the same thing. A constant for
+   * "this tag sends extra SYNC fields"; the coordinates for "this tag reported
+   * an impossible position", so distinct bad positions stay distinct. Omitted,
+   * it collapses by kind, which is the right default for noise.
+   *
+   * The first sighting keeps its detail. That matters: it is the evidence, and
+   * the most recent occurrence of a fault is rarely as informative as the one
+   * that was investigated.
+   */
   async saveAnomaly(imei, a) {
-    const { type, ...detail } = a;
+    const { type, signature, ...detail } = a;
+    const kind = type ?? 'unknown';
     await this.pool.query(
-      `insert into device_anomalies (imei, device_id, kind, detail)
-       values ($1, (select id from devices where imei = $1), $2, $3)`,
-      [imei ?? null, type ?? 'unknown', JSON.stringify(detail)],
+      `insert into device_anomalies (imei, device_id, kind, detail, signature, last_observed_at)
+       values ($1, (select id from devices where imei = $1), $2, $3, $4, now())
+       on conflict (coalesce(imei, ''), kind, coalesce(signature, kind)) do update
+          set occurrences = device_anomalies.occurrences + 1,
+              last_observed_at = now()`,
+      [imei ?? null, kind, JSON.stringify(detail), signature ?? null],
     );
   }
 

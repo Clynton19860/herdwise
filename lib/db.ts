@@ -413,17 +413,54 @@ export async function getComposition() {
   };
 }
 
-/** Seven-day counts, zero-filled so charts always get seven points. */
+/**
+ * Seven-day counts, zero-filled so charts always get seven points.
+ *
+ * Each count used to be a correlated subquery — `where recorded_at::date = d`,
+ * once per day. Casting the column to a date defeats the index on it, so every
+ * one of those was a full scan of `fixes`, and there were seven of them in a
+ * query that also scanned `incidents` and `animals` seven times each. On a
+ * table that grows by a position every few seconds per tag, that is the shape
+ * of a page that gets slower every week it runs.
+ *
+ * Each table is now scanned once, bounded by a range the index can serve, and
+ * grouped. The days are joined onto the result so a day with nothing still
+ * produces a zero — a chart with a missing point lies about the gap.
+ */
 export async function getTrendSeries() {
   const rows = await query<{ d: string; fixes: string; incidents: string; registrations: string }>(`
     with days as (
       select generate_series(current_date - interval '6 days', current_date, interval '1 day')::date as d
+    ),
+    -- Comparing the column itself leaves the index usable; casting it to a
+    -- date, as this query used to, did not.
+    f as (
+      select recorded_at::date as d, count(*) as n
+        from fixes
+       where recorded_at >= current_date - interval '6 days'
+       group by 1
+    ),
+    i as (
+      select reported_at::date as d, count(*) as n
+        from incidents
+       where reported_at >= current_date - interval '6 days'
+       group by 1
+    ),
+    r as (
+      select registered_on as d, count(*) as n
+        from animals
+       where registered_on >= current_date - interval '6 days'
+       group by 1
     )
     select days.d::text as d,
-      (select count(*) from fixes f where f.recorded_at::date = days.d) as fixes,
-      (select count(*) from incidents i where i.reported_at::date = days.d) as incidents,
-      (select count(*) from animals a where a.registered_on = days.d) as registrations
-      from days order by days.d`);
+           coalesce(f.n, 0) as fixes,
+           coalesce(i.n, 0) as incidents,
+           coalesce(r.n, 0) as registrations
+      from days
+      left join f on f.d = days.d
+      left join i on i.d = days.d
+      left join r on r.d = days.d
+     order by days.d`);
   return {
     movement: rows.map((r) => Number(r.fixes)),
     incidents: rows.map((r) => Number(r.incidents)),

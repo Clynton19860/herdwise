@@ -80,3 +80,7 @@ jobs:
       # on a `fixes` row that an unpositioned frame never became.
       - name: Alarms
         run: $PSQL -f supabase/tests/alerts_test.sql
+      # The anomaly log. Built to learn the protocol, it grew to forty thousand
+      # rows in a week and buried the findings that mattered.
+      - name: Anomalies
+        run: $PSQL -f supabase/tests/anomalies_test.sql
