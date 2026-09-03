@@ -2,7 +2,6 @@ import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { I } from "@/components/ui/icon";
-import { PendingAction } from "@/components/ui/pending-action";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Ring } from "@/components/charts/ring";
 import { StatusBadge } from "@/components/app/indicators";
@@ -73,9 +72,12 @@ export default async function HealthPage() {
               <h3 className="text-base font-semibold tracking-tight">Vaccination schedule</h3>
               <p className="text-xs text-white/55">Animals due in the next 30 days</p>
             </div>
-            <PendingAction size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
-              Schedule clinic
-            </PendingAction>
+            {/*
+              "Schedule clinic" was here and did nothing, for the same reason
+              as "Schedule visit": there is no scheduling in this platform. The
+              list below is the real answer to the same question — it says which
+              animals are due, which is what somebody planning a clinic needs.
+            */}
           </div>
 
           <ul className="space-y-2">

@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { Topbar } from "@/components/app/topbar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { I } from "@/components/ui/icon";
-import { PendingAction } from "@/components/ui/pending-action";
 import { Sparkline } from "@/components/charts/sparkline";
 import { Ring } from "@/components/charts/ring";
 import { StatusBadge, BatteryBar } from "@/components/app/indicators";
@@ -11,6 +10,7 @@ import { getAnimal, getHealthRecords, getIncidents, getMapParcels, getOwner } fr
 import { EditRecord } from "@/components/app/edit-record";
 import { ClaimTag } from "@/components/app/claim-tag";
 import { RemoveAnimal } from "@/components/app/remove-animal";
+import { AddHealthRecord } from "@/components/app/add-health-record";
 
 type Params = Promise<{ id: string }>;
 
@@ -72,12 +72,14 @@ export default async function AnimalDetailPage({ params }: { params: Params }) {
               },
             ]}
           />
-          <PendingAction size="sm" variant="glass" iconLeft={<I.Bell size={14} />}>
-            Subscribe
-          </PendingAction>
-          <PendingAction size="sm" variant="primary" iconLeft={<I.Plus size={14} />}>
-            New health record
-          </PendingAction>
+          {/*
+            "Subscribe" was here and did nothing. It promised per-animal alert
+            preferences, which the platform has no concept of — breaches notify
+            every active officer, from the database. Removed rather than left
+            looking real: a control that does nothing is worse than an absent
+            one, because somebody relies on it.
+          */}
+          <AddHealthRecord animalId={animal.id} tag={animal.tag} />
         </div>
       </div>
 

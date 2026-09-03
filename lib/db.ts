@@ -1401,6 +1401,41 @@ export async function deleteAnimal(animalId: string): Promise<{
   return { tag: rows[0].tag, releasedImei: released[0]?.imei ?? null };
 }
 
+/**
+ * Serve a notice on a livestock owner.
+ *
+ * This is the enforcement half of the platform: a council telling a farmer
+ * their animal was out, their licence is due, or their herd is under
+ * quarantine. The button for it sat on the owner page doing nothing, which is
+ * the wrong thing to show a City that is buying enforcement.
+ *
+ * Written as a notification rather than an email because that is what the
+ * platform can honestly promise today: the row is created and shown to the
+ * owner in the platform, and the SMS channel is queued rather than sent — there
+ * is no carrier account yet. The state says which, so nothing claims to have
+ * been delivered when it has not.
+ */
+export async function serveNotice(opts: {
+  ownerId: string;
+  subject: string;
+  body: string;
+  severity: "low" | "medium" | "high" | "critical";
+  channel: "in_app" | "sms";
+  officer: string;
+}): Promise<{ id: string; state: string } | null> {
+  const rows = await query<{ id: string; state: string }>(
+    `insert into notifications (owner_id, channel, subject, body, severity, state)
+     values ($1::uuid, $2::notification_channel, $3, $4, $5::incident_severity,
+             -- In-app is delivered the moment it is written. SMS waits for a
+             -- carrier account, and saying "pending" is the honest word for
+             -- something nobody has sent.
+             case when $2 = 'in_app' then 'sent' else 'pending' end::notification_state)
+     returning id, state::text`,
+    [asUuid(opts.ownerId), opts.channel, opts.subject.trim(),
+     `${opts.body.trim()}\n\n— ${opts.officer}`, opts.severity]);
+  return rows[0] ?? null;
+}
+
 /* ---------------------------------------------------------- permission */
 
 export type TenantGrant = {
