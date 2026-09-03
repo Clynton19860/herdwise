@@ -394,3 +394,33 @@ test('bit 7 is named from what the hardware did, not from the manual', () => {
   assert.deepEqual(decodeAlert('0040').undocumented, [6]);
   assert.deepEqual(decodeAlert('0000').flags, []);
 });
+
+/* ------------------------------------------------------------------ *
+ * The tag that lost its minus sign
+ * ------------------------------------------------------------------ */
+
+/**
+ * On 3 September two tags standing a few metres apart in the same Harare yard
+ * reported opposite hemispheres. One sent `-17.880416`, the other `17.880418`.
+ * The frame really does arrive without the sign, so this is the tag's firmware
+ * and not our decoding — which the decoder has to keep proving, because if it
+ * ever "helpfully" corrected it we would stop being able to tell.
+ */
+test('a positive latitude is decoded as sent, not silently corrected', () => {
+  const dropped = 'S168#860000000000009#0002#007c#LOCA:G;CELL:2,288,1,2,1d9803,62,2,1fb201,63;' +
+    'GDATA:A,9,260903233823,17.880418,30.997500,1,0,0;ALERT:0000;STATUS:97,100$';
+  const p = decodePacket(deframe(Buffer.from(dropped, 'utf8')).frames[0]);
+
+  assert.equal(p.gps.positioned, true, 'the tag claims a valid fix');
+  assert.equal(p.gps.lat, 17.880418, 'and we report exactly what it sent');
+  assert.ok(p.gps.lat > 0, 'northern hemisphere — 3,900 km from where it is');
+
+  // The same yard, from the tag that got it right.
+  const correct = 'S168#860000000000009#0002#007f#LOCA:G;CELL:2,288,1,2,1d9803,63,2,1fb201,63;' +
+    'GDATA:A,13,260903000211,-17.880416,30.997455,1,0,0;ALERT:0000;STATUS:100,100$';
+  const q = decodePacket(deframe(Buffer.from(correct, 'utf8')).frames[0]);
+  assert.equal(q.gps.lat, -17.880416);
+
+  // Metres apart in reality, hemispheres apart as reported.
+  assert.ok(Math.abs(p.gps.lat - q.gps.lat) > 35, 'which is why it cannot be stored');
+});

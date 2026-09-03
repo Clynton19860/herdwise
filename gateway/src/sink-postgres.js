@@ -78,6 +78,38 @@ export class PostgresSink {
   }
 
   /**
+   * A position outside the deployment's region is not a position.
+   *
+   * On 3 September tag …08682 reported `GDATA:A,9,…,17.880418,30.997500` while
+   * tag …07767, standing a few metres away, reported `-17.880416,30.997455`.
+   * Same yard, same minute, and one of them dropped the southern-hemisphere
+   * sign. That is the tag's firmware, not our decoding — the minus is simply
+   * absent from the frame.
+   *
+   * Stored as-is it puts the animal 3,900 km north, in Sudan. In a containment
+   * engine that is not a cosmetic error: the animal is instantly outside every
+   * boundary it owns, a breach opens, and a council is told a farmer's cattle
+   * have left their allocation. Fining somebody over a missing minus sign is
+   * exactly the failure this platform exists to avoid.
+   *
+   * So a fix that lands outside the operating region is refused and recorded as
+   * an anomaly rather than corrected. Flipping the sign back would be guessing,
+   * and a guess that is usually right is worse here than a gap that is always
+   * honest — the gap is visible, and it is evidence to take to the supplier.
+   */
+  static REGION = {
+    south: Number(process.env.REGION_SOUTH ?? -35),
+    north: Number(process.env.REGION_NORTH ?? -8),
+    west: Number(process.env.REGION_WEST ?? 10),
+    east: Number(process.env.REGION_EAST ?? 42),
+  };
+
+  static inRegion(lat, lng) {
+    const r = PostgresSink.REGION;
+    return lat >= r.south && lat <= r.north && lng >= r.west && lng <= r.east;
+  }
+
+  /**
    * An alarm has to survive a missing position.
    *
    * `savePosition` drops any frame without a usable fix, and for a *position*
@@ -149,6 +181,17 @@ export class PostgresSink {
     // doc — storing it as live would fabricate a position we never observed.
     if (!g?.positioned || g.lat == null || g.lng == null) {
       await this.saveAnomaly(p.imei, { type: 'unpositioned_fix', fixType: p.fixTypeRaw });
+      return alert;
+    }
+
+    if (!PostgresSink.inRegion(g.lat, g.lng)) {
+      console.log(
+        `  ⚠ implausible ${p.imei}  ${g.lat},${g.lng}  outside the operating region — refused`);
+      await this.saveAnomaly(p.imei, {
+        type: 'position_outside_region',
+        lat: g.lat, lng: g.lng, fixType: p.fixTypeRaw,
+        region: PostgresSink.REGION,
+      });
       return alert;
     }
 
