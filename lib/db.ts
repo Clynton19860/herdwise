@@ -101,6 +101,81 @@ async function query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
   return rows as T[];
 }
 
+/* ------------------------------------------------------ withheld tags */
+
+/**
+ * Tags a named account must never see, whatever else it is allowed to do.
+ *
+ * The pilot rig is a real tag on a real animal in a real paddock, and the
+ * paddock is the owner's home. Its track is his movements, not the product's.
+ *
+ * Keyed on who is asking rather than on their plan or role, because those are
+ * exactly the things that change: an evaluation account gets unlocked for a
+ * demonstration and locked again afterwards, and a rule written against the
+ * plan would quietly hand over the pilot the moment somebody widened it. This
+ * one holds through any promotion.
+ *
+ * Both halves are configuration. Which tag is "the pilot" and who is being
+ * kept away from it are facts about this arrangement, not about livestock, and
+ * they change in the Vercel settings without a migration or a deploy.
+ */
+const WITHHELD_IMEIS = (process.env.WITHHELD_IMEIS ?? "861251110109128")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+
+const WITHHELD_FROM = (process.env.WITHHELD_FROM_EMAILS ?? "nellidee7@gmail.com")
+  .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+/**
+ * The IMEIs to hide from whoever is asking — empty for everybody not named.
+ *
+ * Resolved here rather than passed in by the page. `getAnimals` alone has
+ * eleven call sites, and a filter each of them must remember to apply is a
+ * filter that leaks the first time somebody adds a twelfth. This way a page
+ * cannot forget, because a page is never asked.
+ *
+ * Fails closed. An unreadable session, a query that throws, a shape nobody
+ * expected — all of them hide the tag rather than show it. That cost a
+ * debugging session once, when `staff` turned out to have no `id` column and
+ * the pilot silently vanished for every council user too; fail-closed still
+ * beats the alternative, which is finding out the other way.
+ */
+async function withheld(): Promise<string[]> {
+  if (WITHHELD_IMEIS.length === 0 || WITHHELD_FROM.length === 0) return [];
+  try {
+    const { cookies } = await import("next/headers");
+    const { SESSION_COOKIE, readSession } = await import("./auth");
+    const raw = (await cookies()).get(SESSION_COOKIE)?.value;
+    if (!raw) return [];
+    const session = readSession(raw);
+    if (!session) return [];
+
+    // `staff` is keyed by auth_user_id and has no `id` column at all; `owners`
+    // is keyed by `id`. The session says which post is being held.
+    const [table, key] = session.k === "o" ? ["owners", "id"] : ["staff", "auth_user_id"];
+    const rows = await query<{ email: string | null }>(
+      `select email from ${table} where ${key} = $1::uuid`, [asUuid(session.sub)]);
+
+    const email = rows[0]?.email?.toLowerCase();
+    if (!email) return WITHHELD_IMEIS;
+    return WITHHELD_FROM.includes(email) ? WITHHELD_IMEIS : [];
+  } catch {
+    return WITHHELD_IMEIS;
+  }
+}
+
+/**
+ * The withheld list as a SQL literal.
+ *
+ * `ANIMAL_SQL_BASE` is shared by five queries that each number their own $1
+ * and $2, so a new placeholder would renumber all of them. Inlining is safe
+ * only because every entry is checked against `^\\d{1,20}$` first — an IMEI is
+ * digits, and anything else never reaches the string.
+ */
+async function withheldLiteral(): Promise<string> {
+  const list = (await withheld()).filter((i) => /^\d{1,20}$/.test(i));
+  return list.length ? `array[${list.map((i) => `'${i}'`).join(",")}]::text[]` : "array[]::text[]";
+}
+
 /* ---------------------------------------------------------------- mapping */
 
 const title = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -193,7 +268,7 @@ type AnimalRow = {
   last_vaccination: string | null; next_vaccination: string | null;
 };
 
-const ANIMAL_SQL = `
+const ANIMAL_SQL_BASE = `
   select a.id, a.tag, a.name, a.species, a.breed, a.sex, a.birth_date,
          a.weight_kg, a.colour, a.status, a.owner_id, a.registered_on,
          d.type as device_type, d.imei, d.battery_pct, d.signal_pct, d.last_fix_at,
@@ -215,6 +290,20 @@ const ANIMAL_SQL = `
     left join lateral (
       select speed_kph, heading_deg from fixes
        where animal_id = a.id order by recorded_at desc limit 1) f on true`;
+
+/**
+ * The animal query, with the pilot's tag detached for an evaluator.
+ *
+ * Filtered on the join rather than the row: the animal is real and stays in
+ * the register, she simply appears untagged. Removing her outright would be a
+ * lie of a different kind — and the live map already drops her, because
+ * without a device she has no position to draw.
+ */
+async function animalSql(): Promise<string> {
+  return ANIMAL_SQL_BASE.replace(
+    "left join devices d on d.animal_id = a.id",
+    `left join devices d on d.animal_id = a.id and d.imei <> all(${await withheldLiteral()})`);
+}
 
 function toAnimal(r: AnimalRow): Animal {
   // Fall back to the centre of the canvas only when a device has never
@@ -261,20 +350,20 @@ function toAnimal(r: AnimalRow): Animal {
 
 export async function getAnimals(page = 0, size = PAGE_SIZE): Promise<Animal[]> {
   return (await query<AnimalRow>(
-    `${ANIMAL_SQL} order by a.tag limit $1 offset $2`,
+    `${await animalSql()} order by a.tag limit $1 offset $2`,
     [Math.min(size, PAGE_SIZE), page * size])).map(toAnimal);
 }
 
 export async function getAnimal(id: string): Promise<Animal | null> {
   // Accepts either the database id or the printed ear-tag number.
   const rows = await query<AnimalRow>(
-    `${ANIMAL_SQL} where a.id = $1::uuid or a.tag = $2`, [asUuid(id), id]);
+    `${await animalSql()} where a.id = $1::uuid or a.tag = $2`, [asUuid(id), id]);
   return rows[0] ? toAnimal(rows[0]) : null;
 }
 
 export async function getAnimalsByOwner(ownerId: string): Promise<Animal[]> {
   return (await query<AnimalRow>(
-    `${ANIMAL_SQL} where a.owner_id = $1::uuid order by a.tag`, [asUuid(ownerId)])).map(toAnimal);
+    `${await animalSql()} where a.owner_id = $1::uuid order by a.tag`, [asUuid(ownerId)])).map(toAnimal);
 }
 
 /* ---------------------------------------------------------------- zones */
@@ -624,7 +713,8 @@ export async function getMapAnimals(): Promise<MapAnimal[]> {
             containment_state, distance_m
        from map_animals
       where lat is not null
-      order by tag`);
+        and (imei is null or imei <> all($1::text[]))
+      order by tag`, [await withheld()]);
 }
 
 export async function getMapParcels(): Promise<MapParcel[]> {
@@ -1186,7 +1276,7 @@ export async function countRows(table: "animals" | "owners" | "incidents"): Prom
  */
 export async function getAnimalsNeedingAttention(limit = 20): Promise<Animal[]> {
   return (await query<AnimalRow>(
-    `${ANIMAL_SQL}
+    `${await animalSql()}
       where a.status <> 'healthy'
          or (d.battery_pct is not null and d.battery_pct between 1 and 24)
          or d.last_fix_at < now() - interval '2 hours'
@@ -1266,7 +1356,9 @@ export async function getUnclaimedDevices(): Promise<UnclaimedDevice[]> {
   const rows = await query<{
     id: string; imei: string; type: string; battery_pct: number | null;
     last_seen_at: Date | null; anomalies: string;
-  }>(`select id, imei, type, battery_pct, last_seen_at, anomalies from unclaimed_devices`);
+  }>(`select id, imei, type, battery_pct, last_seen_at, anomalies
+        from unclaimed_devices
+       where imei <> all($1::text[])`, [await withheld()]);
   return rows.map((r) => ({
     id: r.id, imei: r.imei, imeiMasked: maskImei(r.imei), type: r.type,
     batteryPct: r.battery_pct,
@@ -1312,7 +1404,8 @@ export async function getTagInventory(): Promise<TagRow[]> {
       from devices d
       left join animals a on a.id = d.animal_id
       left join owners  o on o.id = a.owner_id
-     order by d.last_seen_at desc nulls last, d.imei`);
+     where d.imei <> all($1::text[])
+     order by d.last_seen_at desc nulls last, d.imei`, [await withheld()]);
 
   return rows.map((r) => ({
     id: r.id, imei: r.imei, imeiMasked: maskImei(r.imei),
@@ -1343,7 +1436,8 @@ export async function getFleetStats(): Promise<{
            count(*) filter (where animal_id is not null) as assigned,
            count(*) filter (where animal_id is null) as unassigned,
            count(*) filter (where battery_pct is not null and battery_pct < 30) as low_battery
-      from devices`);
+      from devices
+     where imei <> all($1::text[])`, [await withheld()]);
   const r = rows[0];
   return {
     total: Number(r?.total ?? 0), online: Number(r?.online ?? 0),
@@ -1368,8 +1462,14 @@ export async function assignDevice(deviceId: string, animalId: string | null) {
 
 /** Find a device by the IMEI printed on it, for claiming during registration. */
 export async function getDeviceByImei(imei: string) {
+  // Hiding a tag from the lists is not enough on its own: this is the lookup
+  // behind "type the number printed on the tag", so an evaluator who guessed
+  // the pilot's IMEI could claim it from the list it was removed from — and
+  // claiming it would detach a tag from a real animal in a real paddock.
+  // Answering "no such tag" is the same answer they get for a typo.
   const rows = await query<{ id: string; animal_id: string | null }>(
-    `select id, animal_id from devices where imei = $1`, [imei.trim()]);
+    `select id, animal_id from devices
+      where imei = $1 and imei <> all($2::text[])`, [imei.trim(), await withheld()]);
   return rows[0] ?? null;
 }
 
@@ -1641,7 +1741,7 @@ export async function touchOwnerLogin(ownerId: string) {
  */
 export async function getHerd(ownerId: string): Promise<Animal[]> {
   return (await query<AnimalRow>(
-    `${ANIMAL_SQL} where a.owner_id = $1::uuid order by a.tag`,
+    `${await animalSql()} where a.owner_id = $1::uuid order by a.tag`,
     [asUuid(ownerId)])).map(toAnimal);
 }
 
